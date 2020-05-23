@@ -45,58 +45,60 @@ if __name__ == "__main__":
 
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
-
-    # Source state
-    st = []
-    # Target state
-    stp1 = []
-    # Actions (labels)
-    at = []
     
-    # Make a new Blender Env
-    blenderenv = BlenderEnv(params)
-    # Make a new rope
-    blenderenv.clear_scene()
-    blenderenv.make_table(params)
-    frame_end = 300
-    rope = blenderenv.make_rope("capsule_12_8_1_2.stl")
-    bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
-    bpy.context.scene.frame_end = frame_end
+    # Prediction horizon T
+    T = 100
+    for t in range(100):
+        # Source state
+        st = []
+        # Target state
+        stp1 = []
+        # Actions (labels)
+        at = []
+        
+        # Make a new Blender Env
+        blenderenv = BlenderEnv(params)
+        # Make a new rope
+        blenderenv.clear_scene()
+        blenderenv.make_table(params)
+        frame_end = 300
+        rope = blenderenv.make_rope("capsule_12_8_1_2.stl")
+        bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
+        bpy.context.scene.frame_end = frame_end
 
-    rope[0].rigid_body.mass *= 5
-    rope[-1].rigid_body.mass *= 2
-    for r in rope:
-        st_loc = r.matrix_world.to_translation()
-        print(st_loc)
-        st.append(np.array(st_loc)[:2])
-    st = np.array(st)
-    # Randomly perturb the rope
-    idx = random.randint(0, len(rope))
-    idx_target = [rope[idx].location[0], rope[idx].location[1] + random.uniform(-2.5, 2.5), rope[idx].location[2]]
-    move_rope_end(rope[idx], idx_target, 10)
-    
-    # Move the end link
-    target = (random.uniform(-13, -11), random.uniform(-3, 3), 0)
-    keyf = random.randint(5, 15)
-    # Record the action
-    at = np.array([keyf, target[0] - rope[-1].location[0], target[1] - rope[-1].location[1]])
-    move_rope_end(rope[-1], target, keyf)
-    # Wait for the rope to settle in the scene
-    bpy.context.scene.frame_current = 0
-    for i in range(30):
-        bpy.context.scene.frame_set(i)
-    print("Action taken: ", at)
-    # All links' locations:
-    for r in rope:
-        stp1_loc = r.matrix_world.to_translation()
-        print("New state location: ", stp1_loc)
-        stp1.append(np.array(stp1_loc)[:2])
-    stp1 = np.array(stp1)
-    blenderenv.add_camera_light()
-    # Save the npy files
-    if not os.path.exists("./states_actions"):
-        os.makedirs('./states_actions')
-    save = os.path.join(os.getcwd(), 'states_actions')
-    np.save(os.path.join(save, 's_t_' + str(num) + '.npy'), st)
-    np.save(os.path.join(save, 's_tp1_' + str(num) + '.npy'), stp1)
-    np.save(os.path.join(save, 'a_t_' + str(num) + '.npy'), at)
+        rope[0].rigid_body.mass *= 5
+        rope[-1].rigid_body.mass *= 2
+        for r in rope:
+            st_loc = r.matrix_world.to_translation()
+            st.append(np.array(st_loc)[:2])
+        st = np.array(st)
+        # Randomly perturb the rope
+        idx = random.randint(0, len(rope))
+        idx_target = [rope[idx].location[0], rope[idx].location[1] + random.uniform(-2.5, 2.5), rope[idx].location[2]]
+        move_rope_end(rope[idx], idx_target, 10)
+        
+        # Move the end link
+        target = (random.uniform(-13, -11), random.uniform(-3, 3), 0)
+        keyf = random.randint(5, 15)
+        # Record the action
+        at = np.array([keyf, target[0] - rope[-1].location[0], target[1] - rope[-1].location[1]])
+        move_rope_end(rope[-1], target, keyf)
+        # Wait for the rope to settle in the scene
+        bpy.context.scene.frame_current = 0
+        for i in range(30):
+            bpy.context.scene.frame_set(i)
+        print("Action taken: ", at)
+        # All links' locations:
+        for r in rope:
+            stp1_loc = r.matrix_world.to_translation()
+            print("New state location: ", stp1_loc)
+            stp1.append(np.array(stp1_loc)[:2])
+        stp1 = np.array(stp1)
+        blenderenv.add_camera_light()
+        # Save the npy files
+        if not os.path.exists("./states_actions"):
+            os.makedirs('./states_actions')
+        save = os.path.join(os.getcwd(), 'states_actions')
+        np.save(os.path.join(save, 's_t_' + str(t) + '.npy'), st)
+        np.save(os.path.join(save, 's_tp1_' + str(t) + '.npy'), stp1)
+        np.save(os.path.join(save, 'a_t_' + str(t) + '.npy'), at)

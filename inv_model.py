@@ -23,22 +23,22 @@ Given we have access to the ground truth rope links locations in Blender:
 TODO: Better SA formulations"?
 
 States: 90x2. 90 links in a rope, and each link has x and y.
-Actions: 1x2x2. 1 time step, x and y for the HELD link initial position, x and y for the HELD link target position.
+Actions: 1x3. 1 time step, dx and dy for the HELD link position.
 
 For details, refer to https://arxiv.org/pdf/1703.02018.pdf
 """
 class Inv_Model(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(100, 96)
+        self.fc1 = nn.Linear(180, 96)
         self.fc2 = nn.Linear(96, 256)
         self.fc3 = nn.Linear(256, 384)
         self.fc4 = nn.Linear(384, 384)
         self.fc5 = nn.Linear(384, 256)
-        self.fc6 = nn.Linear(384, 200)
+        self.fc6 = nn.Linear(256, 200)
 
         # Did not implement dim reduction via Bayes because the dim is low in this vanilla case.
-        self.fc_out_1 = nn.Linear(400, 4)
+        self.fc_out_1 = nn.Linear(400, 3)
     def forward(self, x1, x2):
         # Stream 1
         x1 = F.elu(self.fc1(x1))

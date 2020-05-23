@@ -41,21 +41,23 @@ if __name__ == "__main__":
     parser.add_argument('-exp', '--exp_num', dest='exp_num', type=int)
     args = parser.parse_known_args(argv)[0]
     num = args.exp_num
-    print('Experiment Number: ', num)
 
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
     
     # Prediction horizon T
-    T = 100
-    for t in range(100):
-        # Source state
+    T = 3
+    # Source state
+    s = []
+    # Target state
+    sp1 = []
+    # Actions (labels)
+    a = []
+    for t in range(T):
+
+        print('Experiment Number: ', t)
         st = []
-        # Target state
         stp1 = []
-        # Actions (labels)
-        at = []
-        
         # Make a new Blender Env
         blenderenv = BlenderEnv(params)
         # Make a new rope
@@ -91,14 +93,19 @@ if __name__ == "__main__":
         # All links' locations:
         for r in rope:
             stp1_loc = r.matrix_world.to_translation()
-            print("New state location: ", stp1_loc)
+            # print("New state location: ", stp1_loc)
             stp1.append(np.array(stp1_loc)[:2])
         stp1 = np.array(stp1)
         blenderenv.add_camera_light()
-        # Save the npy files
-        if not os.path.exists("./states_actions"):
-            os.makedirs('./states_actions')
-        save = os.path.join(os.getcwd(), 'states_actions')
-        np.save(os.path.join(save, 's_t_' + str(t) + '.npy'), st)
-        np.save(os.path.join(save, 's_tp1_' + str(t) + '.npy'), stp1)
-        np.save(os.path.join(save, 'a_t_' + str(t) + '.npy'), at)
+        s.append(st)
+        sp1.append(stp1)
+        a.append(at)
+    
+
+    # Save the npy files
+    if not os.path.exists("./states_actions"):
+        os.makedirs('./states_actions')
+    save = os.path.join(os.getcwd(), 'states_actions')
+    np.save(os.path.join(save, 's.npy'), s)
+    np.save(os.path.join(save, 'sp1.npy'), sp1)
+    np.save(os.path.join(save, 'a.npy'), a)

@@ -60,7 +60,6 @@ if __name__ == "__main__":
     blenderenv.make_table(params)
     frame_end = 300
     rope = blenderenv.make_rope("capsule_12_8_1_2.stl")
-    bpy.context.scene.frame_current = 0
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
 
@@ -68,6 +67,7 @@ if __name__ == "__main__":
     rope[-1].rigid_body.mass *= 2
     for r in rope:
         st_loc = r.matrix_world.to_translation()
+        print(st_loc)
         st.append(np.array(st_loc)[:2])
     st = np.array(st)
     # Randomly perturb the rope
@@ -76,11 +76,15 @@ if __name__ == "__main__":
     move_rope_end(rope[idx], idx_target, 10)
     
     # Move the end link
-    target = (random.uniform(-13, -10), random.uniform(-3, 3), 0)
-    keyf = random.randint(2, 15)
+    target = (random.uniform(-13, -11), random.uniform(-3, 3), 0)
+    keyf = random.randint(5, 15)
     # Record the action
     at = np.array([keyf, target[0] - rope[-1].location[0], target[1] - rope[-1].location[1]])
     move_rope_end(rope[-1], target, keyf)
+    # Wait for the rope to settle in the scene
+    bpy.context.scene.frame_current = 0
+    for i in range(30):
+        bpy.context.scene.frame_set(i)
     print("Action taken: ", at)
     # All links' locations:
     for r in rope:
@@ -96,7 +100,3 @@ if __name__ == "__main__":
     np.save(os.path.join(save, 's_t_' + str(num) + '.npy'), st)
     np.save(os.path.join(save, 's_tp1_' + str(num) + '.npy'), stp1)
     np.save(os.path.join(save, 'a_t_' + str(num) + '.npy'), at)
-
-        # Quit Blender
-        # bpy.ops.wm.quit_blender()
-

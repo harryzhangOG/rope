@@ -46,25 +46,25 @@ if __name__ == "__main__":
         params = json.load(f)
     
     # Prediction horizon T
-    T = 3
+    T = 1000
     # Source state
     s = []
     # Target state
     sp1 = []
     # Actions (labels)
     a = []
+    # Make a new Blender Env
+    blenderenv = BlenderEnv(params)
+    # Make a new rope
+    blenderenv.clear_scene()
+    blenderenv.make_table(params)
+    rope = blenderenv.make_rope("capsule_12_8_1_2.stl")
     for t in range(T):
-
         print('Experiment Number: ', t)
         st = []
         stp1 = []
-        # Make a new Blender Env
-        blenderenv = BlenderEnv(params)
-        # Make a new rope
-        blenderenv.clear_scene()
-        blenderenv.make_table(params)
+        
         frame_end = 300
-        rope = blenderenv.make_rope("capsule_12_8_1_2.stl")
         bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
         bpy.context.scene.frame_end = frame_end
 
@@ -100,6 +100,10 @@ if __name__ == "__main__":
         s.append(st)
         sp1.append(stp1)
         a.append(at)
+        # Delete all keyframes to make a new knot and reset the frame counter
+        bpy.context.scene.frame_set(0)
+        for ac in bpy.data.actions:
+            bpy.data.actions.remove(ac) 
     
 
     # Save the npy files

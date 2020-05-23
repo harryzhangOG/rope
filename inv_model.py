@@ -22,8 +22,8 @@ Given we have access to the ground truth rope links locations in Blender:
 
 TODO: Better SA formulations"?
 
-States: 50x2. 50 links in a rope, and each link has x and y.
-Actions: 1x2x2. 1 time step, x and y for the end link initial position, x and y for the end link desired position.
+States: 90x2. 90 links in a rope, and each link has x and y.
+Actions: 1x2x2. 1 time step, x and y for the HELD link initial position, x and y for the HELD link target position.
 
 For details, refer to https://arxiv.org/pdf/1703.02018.pdf
 """

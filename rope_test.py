@@ -46,7 +46,7 @@ if __name__ == "__main__":
         params = json.load(f)
     
     # Prediction horizon T
-    T = 1000
+    T = 10000
     # Source state
     s = []
     # Target state
@@ -75,12 +75,12 @@ if __name__ == "__main__":
             st.append(np.array(st_loc)[:2])
         st = np.array(st)
         # Randomly perturb the rope
-        idx = random.randint(0, len(rope))
+        idx = random.randint(0, len(rope) - 1)
         idx_target = [rope[idx].location[0], rope[idx].location[1] + random.uniform(-2.5, 2.5), rope[idx].location[2]]
         move_rope_end(rope[idx], idx_target, 10)
         
         # Move the end link
-        target = (random.uniform(-13, -11), random.uniform(-3, 3), 0)
+        target = (random.uniform(-13, -10), random.uniform(-2.5, 2.5), 0)
         keyf = random.randint(5, 15)
         # Record the action
         at = np.array([keyf, target[0] - rope[-1].location[0], target[1] - rope[-1].location[1]])
@@ -96,6 +96,9 @@ if __name__ == "__main__":
             # print("New state location: ", stp1_loc)
             stp1.append(np.array(stp1_loc)[:2])
         stp1 = np.array(stp1)
+        # Checking if the output contains nan
+        print("Wrong output number: ", np.count_nonzero(np.isnan(stp1)))
+        print('\n')
         blenderenv.add_camera_light()
         s.append(st)
         sp1.append(stp1)

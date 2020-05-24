@@ -35,16 +35,16 @@ def train():
     Y = np.load(os.path.join(path, 'a.npy'))
     train_x1 = torch.from_numpy(X1).to(device)
     train_x1 = torch.reshape(train_x1, (X1.shape[0], -1))
-    train_x2 = torch.from_numpy(X1).to(device)
+    train_x2 = torch.from_numpy(X2).to(device)
     train_x2 = torch.reshape(train_x2, (X2.shape[0], -1))
     train_y = torch.from_numpy(Y).to(device)
     print(train_y.shape)
     
-    EPOCHS = 2000
+    EPOCHS = 1000
     train_loss = []
     val_loss = []
     # TODO: Finalize how many training points/validation points we want
-    holdout = 900 
+    holdout = 20
     for e in range(EPOCHS):
         inv_model.zero_grad()
         optimizer.zero_grad()
@@ -74,7 +74,7 @@ def train():
 
 if __name__ == "__main__":
     train_loss, val_loss = train()
-    EPOCHS = 2000
+    EPOCHS = 1000
     fig, ax = plt.subplots(figsize=(12, 7))
     ax.set_title("Loss vs. Epochs")
     ax.set_xlabel('Epochs')
@@ -82,4 +82,5 @@ if __name__ == "__main__":
     ax.plot(np.linspace(0, EPOCHS - 1, EPOCHS), train_loss, np.linspace(0, EPOCHS - 1, EPOCHS), val_loss)
     ax.legend(['Training Loss', 'Validation Loss'])
     plt.show()
+    fig.savefig('loss.png')
 

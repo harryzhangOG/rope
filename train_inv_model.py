@@ -26,48 +26,57 @@ def train():
     # Inverse model net
     inv_model = Inv_Model()
     inv_model.to(device)
-    optimizer = optim.Adam(inv_model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(inv_model.parameters(), lr=1e-4)
     loss_function = nn.MSELoss()
     # TODO: Load Training and Testing data
     path = os.path.join(os.getcwd(), 'states_actions')
     X1 = np.load(os.path.join(path, 's.npy'))
     X2 = np.load(os.path.join(path, 'sp1.npy'))
     Y = np.load(os.path.join(path, 'a.npy'))
-    train_x1 = torch.from_numpy(X1).to(device)
-    train_x1 = torch.reshape(train_x1, (X1.shape[0], -1))
-    train_x2 = torch.from_numpy(X1).to(device)
-    train_x2 = torch.reshape(train_x2, (X2.shape[0], -1))
-    train_y = torch.from_numpy(Y).to(device)
-    print(train_y.shape)
+    # TODO: Finalize how many training points/validation points we want
+    holdout = 900 
+    x1 = torch.from_numpy(X1).to(device)
+    x1 = torch.reshape(x1, (X1.shape[0], -1))
+    x2 = torch.from_numpy(X2).to(device)
+    x2 = torch.reshape(x2, (X2.shape[0], -1))
+    y = torch.from_numpy(Y).to(device)
+    train_dataset = Data.TensorDataset(x1[:holdout], x2[:holdout], y[:holdout])
+    train_dataloader = Data.DataLoader(train_dataset, batch_size=200, shuffle=True)
+    val_dataset = Data.TensorDataset(x1[holdout:], x2[holdout:], y[holdout:])
+    val_dataloader = Data.DataLoader(train_dataset, batch_size=200, shuffle=True)
     
     EPOCHS = 2000
     train_loss = []
     val_loss = []
-    # TODO: Finalize how many training points/validation points we want
-    holdout = 900 
     for e in range(EPOCHS):
-        inv_model.zero_grad()
-        optimizer.zero_grad()
-        # Train on first HOLDOUT points
-        inv_model.train()
-        outputs = inv_model(train_x1[:holdout].float(), train_x2[:holdout].float())
-        loss = loss_function(outputs, train_y[:holdout].float())
-        
-        loss.backward()
-        # Training loss
-        tloss = loss.item()
-        optimizer.step()
-        train_loss.append(tloss)
-        # Validate on the rest
-        inv_model.eval()
-        val_outputs = inv_model(train_x1[holdout:].float(), train_x2[holdout:].float())
-        vloss = loss_function(val_outputs, train_y[holdout:].float()).item()
-        val_loss.append(vloss)
-        if (e % 100) == 0:
-            print("Epoch: ", e, " Training Loss: ", tloss)
-            print("Epoch: ", e, " Validation Loss: ", vloss)
-    torch.save({'epoch': e,
-                'model_state_dict': inv_model.state_dict(),
+        for i, batch in enumerate(train_dataloader, 0):
+            train_x1, train_x2, train_y = batch
+            print(train_x2)
+            inv_model.zero_grad()
+            optimizer.zero_grad()
+            # Train on first HOLDOUT points
+            inv_model.train()
+            outputs = inv_model(train_x1.float(), train_x2.float())
+            loss = loss_function(outputs, train_y.float())
+            
+            loss.backward()
+            # Training loss
+            tloss = loss.item()
+            optimizer.step()
+            train_loss.append(tloss)
+            #if (i % 5) == 0:
+            #    print("Epoch: ", e, "Iteration: ", i, " Training Loss: ", tloss)
+        for i, batch in enumerate(val_dataloader, 0):
+            # Validate on the rest
+            inv_model.eval()
+            val_x1, val_x2, val_y = batch
+            val_outputs = inv_model(val_x1.float(), val_x2.float())
+            vloss = loss_function(val_outputs, val_y.float()).item()
+            val_loss.append(vloss)
+            #if (i % 5) == 0:
+            #    print("Epoch: ", e, "Iteration: ", i, " Validation Loss: ", vloss)
+
+    torch.save({'model_state_dict': inv_model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
                }, 'inv_model_ckpt.pth')
     return train_loss, val_loss

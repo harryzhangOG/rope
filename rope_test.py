@@ -45,8 +45,8 @@ if __name__ == "__main__":
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
     
-    # Prediction horizon T
-    T = 10000
+    # Simulation horizon T
+    T = 5000
     # Source state
     s = []
     # Target state
@@ -70,23 +70,33 @@ if __name__ == "__main__":
 
         rope[0].rigid_body.mass *= 5
         rope[-1].rigid_body.mass *= 2
-        for r in rope:
-            st_loc = r.matrix_world.to_translation()
-            st.append(np.array(st_loc)[:2])
-        st = np.array(st)
         # Randomly perturb the rope
         idx = random.randint(0, len(rope) - 1)
         idx_target = [rope[idx].location[0], rope[idx].location[1] + random.uniform(-2.5, 2.5), rope[idx].location[2]]
         move_rope_end(rope[idx], idx_target, 10)
+        # Wait for the rope to settle in the scene
+        
+        # FIRST, SET THE CURRENT FRAME TO 0, AND WAIT FOR 20 FRAMES
+        bpy.context.scene.frame_current = 0
+        for i in range(20):
+            bpy.context.scene.frame_set(i)
+        for r in rope:
+            st_loc = r.matrix_world.to_translation()
+            st.append(np.array(st_loc)[:2])
+        st = np.array(st)
         
         # Move the end link
-        target = (random.uniform(-13, -10), random.uniform(-2.5, 2.5), 0)
+        target = (random.uniform(-13, -10), random.uniform(-3.5, 3.5), 0)
         keyf = random.randint(5, 15)
         # Record the action
         at = np.array([keyf, target[0] - rope[-1].location[0], target[1] - rope[-1].location[1]])
-        move_rope_end(rope[-1], target, keyf)
+
+        # KEY FRAME SHOULD ALSO TAKE THE WAITED 20 FRAMES INTO ACCOUNT
+        move_rope_end(rope[-1], target, 20 + keyf)
         # Wait for the rope to settle in the scene
-        bpy.context.scene.frame_current = 0
+
+        # THEN SET THE CURRENT FRAME TO 20, AND WAIT FOR ANOTHER 30 FRAMES
+        bpy.context.scene.frame_current = 20
         for i in range(30):
             bpy.context.scene.frame_set(i)
         print("Action taken: ", at)

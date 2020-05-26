@@ -72,12 +72,12 @@ if __name__ == "__main__":
         rope[-1].rigid_body.mass *= 2
         # Randomly perturb the rope
         idx = random.randint(0, len(rope) - 1)
-        idx_target = [rope[idx].location[0], rope[idx].location[1] + random.uniform(-2.5, 2.5), rope[idx].location[2]]
+        idx_target = [rope[idx].matrix_world.to_translation()[0], rope[idx].matrix_world.to_translation()[1] + random.uniform(-2.5, 2.5), rope[idx].matrix_world.to_translation()[2]]
+        print("Perturbation: ", idx, idx_target)
         move_rope_end(rope[idx], idx_target, 10)
         # Wait for the rope to settle in the scene
         
-        # FIRST, SET THE CURRENT FRAME TO 0, AND WAIT FOR 20 FRAMES
-        bpy.context.scene.frame_current = 0
+        # FIRST, WAIT FOR 20 FRAMES
         for i in range(20):
             bpy.context.scene.frame_set(i)
         for r in rope:
@@ -89,15 +89,14 @@ if __name__ == "__main__":
         target = (random.uniform(-13, -10), random.uniform(-3.5, 3.5), 0)
         keyf = random.randint(5, 15)
         # Record the action
-        at = np.array([keyf, target[0] - rope[-1].location[0], target[1] - rope[-1].location[1]])
+        at = np.array([keyf, target[0] - rope[-1].matrix_world.to_translation()[0], target[1] - rope[-1].matrix_world.to_translation()[1]])
 
         # KEY FRAME SHOULD ALSO TAKE THE WAITED 20 FRAMES INTO ACCOUNT
         move_rope_end(rope[-1], target, 20 + keyf)
         # Wait for the rope to settle in the scene
 
-        # THEN SET THE CURRENT FRAME TO 20, AND WAIT FOR ANOTHER 30 FRAMES
-        bpy.context.scene.frame_current = 20
-        for i in range(30):
+        # THEN, WAIT FOR ANOTHER 30 FRAMES (Currently yet to find a better way to wait)
+        for i in range(50):
             bpy.context.scene.frame_set(i)
         print("Action taken: ", at)
         # All links' locations:
@@ -107,7 +106,7 @@ if __name__ == "__main__":
             stp1.append(np.array(stp1_loc)[:2])
         stp1 = np.array(stp1)
         # Checking if the output contains nan
-        print("Wrong output number: ", np.count_nonzero(np.isnan(stp1)))
+        # print("Wrong output number: ", np.count_nonzero(np.isnan(stp1)))
         print('\n')
         blenderenv.add_camera_light()
         s.append(st)

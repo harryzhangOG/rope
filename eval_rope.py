@@ -29,10 +29,7 @@ def move_rope_end(end, target, key_f):
     for fno, rot, loc in key_frames:
         bpy.context.scene.frame_current = fno
         end.location = loc
-        end.rotation_euler = (rot*pi/180, 90*pi/180, 0)
         end.keyframe_insert(data_path="location", frame=fno)
-        end.keyframe_insert(data_path="rotation_euler", frame=fno)
-import argparse
 if __name__ == "__main__":
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
@@ -50,21 +47,35 @@ if __name__ == "__main__":
     rope[0].rigid_body.mass *= 5
     rope[-1].rigid_body.mass *= 2
     # Load the test source state s_t
-    s_t = np.load(os.path.join('states_actions', "s_test.npy"))[2]
+    s_t = np.load(os.path.join('states_actions', "s_test.npy"))[0]
     # Load the test target state s_tp1
     s_tp1 = np.load(os.path.join('states_actions', "sp1_test.npy"))[0]
-    # for i, r in enumerate(rope, 0):
-    #     move_rope_end(r, (s_t[i][0], s_t[i][1], 0), 10)
     # Configure the rope according to the loaded source states
-    pert_idx = 77
-    pert_target = [-9.925000190734863, 1.2632782587929094, 0.0]
+    pert_idx = 60
+    pert_target = [-5.25, 2, 0.0]
     move_rope_end(rope[pert_idx], pert_target, 10)
     for i in range(20):
         bpy.context.scene.frame_set(i)
+    bpy.context.scene.frame_set(10)
+    # IMPORTANT: set s_t to be reproducible.
+    for i, r in enumerate(rope, 0):
+        if i == pert_idx:
+            continue
+        r.keyframe_insert(data_path="location", frame=1)
+        r.keyframe_insert(data_path="rotation_euler", frame=1)
+        loc, rot, scale = r.matrix_world.decompose()
+        r.rigid_body.kinematic = True
+        r.location = loc
+        r.rotation_euler = rot.to_euler('XYZ')
+        r.keyframe_insert(data_path="location", frame=10)
+        r.keyframe_insert(data_path="rotation_euler", frame=10)
     # Move the rope according to the predicted action
-    a_t_pred = [9, 1.8388214,  0.24663843]
-    move_rope_end(rope[-1], (a_t_pred[1] + rope[-1].matrix_world.to_translation()[0], 
-                             a_t_pred[2] + rope[-1].matrix_world.to_translation()[1], 0), 
-                             a_t_pred[0] + 30)
+    a_t_pred = [10,    1.9861134, -4.1936927]
+    rope[-1].rigid_body.kinematic = True
+    bpy.context.scene.frame_current = 10 + a_t_pred[0]
+    rope[-1].location = (a_t_pred[1] + rope[-1].matrix_world.to_translation()[0], a_t_pred[2] + rope[-1].matrix_world.to_translation()[1], 0)
+    rope[-1].keyframe_insert(data_path="location", frame=a_t_pred[0] + 10)
+    for i in range(10 + a_t_pred[0]):
+        bpy.context.scene.frame_set(i)
 
 

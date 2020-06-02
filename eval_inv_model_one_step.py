@@ -38,7 +38,7 @@ def eval_inv(ckpt, s1, s2):
 
 if __name__ == "__main__":
     # Checkpoint path
-    ckpt = 'inv_model_ckpt.pth'
+    ckpt = 'inv_model_ckpt_one_step.pth'
     # Test initial state
     s1 = np.load(os.path.join('states_actions', 's_test.npy'))
     # Test target state

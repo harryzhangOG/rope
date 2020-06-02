@@ -111,6 +111,8 @@ if __name__ == "__main__":
     sp1 = []
     # Actions (labels)
     a = []
+    # Encoded actions
+    a_enc = []
     # # Make a new Blender Env
     # blenderenv = BlenderEnv(params)
     # # Make a new rope
@@ -162,6 +164,11 @@ if __name__ == "__main__":
         keyf = random.sample(range(3, 20), 1)[0]
         # Record the random action
         at = np.array([keyf, np.random.uniform(0.5, 2) * random.choice((-1, 1)), np.random.uniform(0.5, 2) * random.choice((-1, 1))])
+        # Encode the action into one-hot representation using histogram. 
+        # Note that the action space is coarsely discretized into arrays separated by 0.1
+        at_enc = np.array([np.histogram(at[0], bins = np.arange(3, 21))[0],
+                           np.histogram(at[1], bins = np.linspace(-3, 3, 61))[0],
+                           np.histogram(at[2], bins = np.linspace(-3, 3, 61))[0]])
         # Take the action step in sim
         take_action(rope[-1], frame_offset + 100 + at[0], (at[1], at[2], 0))
         print("Action taken: ", at)
@@ -182,6 +189,7 @@ if __name__ == "__main__":
         s.append(st)
         sp1.append(stp1)
         a.append(at)
+        a_enc.append(at_enc)
         frame_offset += 200
         # Delete all keyframes to make a new knot and reset the frame counter
         # bpy.context.scene.frame_set(0)
@@ -194,5 +202,8 @@ if __name__ == "__main__":
         os.makedirs('./states_actions')
     save = os.path.join(os.getcwd(), 'states_actions')
     np.save(os.path.join(save, 's_' + str(num) + '.npy'), s)
-    np.save(os.path.join(save, 'sp1_ '+ str(num) + '.npy'), sp1)
+    np.save(os.path.join(save, 'sp1_'+ str(num) + '.npy'), sp1)
     np.save(os.path.join(save, 'a_' + str(num) + '.npy'), a)
+    # Here the encoded action and the action numpy array should have the same shapes (3 x #iterations), but in the encoded action,
+    # each of the three items is another numpy array, representing the one-hot encoded action
+    np.save(os.path.join(save, 'a_enc_' + str(num) + '.npy'), a_enc)

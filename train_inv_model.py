@@ -27,12 +27,12 @@ def train():
     inv_model = Inv_Model()
     inv_model.to(device)
     optimizer = optim.Adam(inv_model.parameters(), lr=1e-4)
-    loss_function = nn.MSELoss()
+    loss_function = nn.CrossEntropyLoss()
     # TODO: Load Training and Testing data
     path = os.path.join(os.getcwd(), 'states_actions')
     X1 = np.load(os.path.join(path, 's.npy'))
     X2 = np.load(os.path.join(path, 'sp1.npy'))
-    Y = np.load(os.path.join(path, 'a.npy'))
+    Y = np.load(os.path.join(path, 'a_encoded.npy'))
     # TODO: Finalize how many training points/validation points we want
     holdout = 900 
     x1 = torch.from_numpy(X1).to(device)
@@ -56,7 +56,7 @@ def train():
             optimizer.zero_grad()
             # Train on first HOLDOUT points
             inv_model.train()
-            outputs = inv_model(train_x1.float(), train_x2.float())
+            output_frame, output_x, output_y = inv_model(train_x1.float(), train_x2.float())
             loss = loss_function(outputs, train_y.float())
             
             loss.backward()

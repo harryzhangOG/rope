@@ -39,11 +39,11 @@ class Inv_Model(nn.Module):
 
         # Implemented dim reduction via Bayes as classification.
         # "Velocity" action output
-        self.fc_out_1 = nn.Linear(400, 18)
+        self.fc_out_1 = nn.Linear(400, 17)
         # X action output --- discretize [-3, 3] to an array evenly separated by 0.1
-        self.fc_out_2 = nn.Linear(418, 61)
+        self.fc_out_2 = nn.Linear(417, 60)
         # Y action output --- discretize [-3, 3] to an array evenly separated by 0.1
-        self.fc_out_3 = nn.Linear(418+61, 61)
+        self.fc_out_3 = nn.Linear(417+60, 60)
     def forward(self, x1, x2):
         # Stream 1
         x1 = F.elu(self.fc1(x1))

@@ -32,17 +32,29 @@ def train():
     path = os.path.join(os.getcwd(), 'states_actions')
     X1 = np.load(os.path.join(path, 's.npy'))
     X2 = np.load(os.path.join(path, 'sp1.npy'))
-    Y = np.load(os.path.join(path, 'a_encoded.npy'))
+    Y = np.load(os.path.join(path, 'a_enc.npy'))
+    # Post-process the encoded action to make it compatible with pytorch
+    Y_frame = np.vstack(list(Y[:, 0]))
+    Y_x = np.vstack(list(Y[:, 1]))
+    Y_y = np.vstack(list(Y[:, 2]))
     # TODO: Finalize how many training points/validation points we want
-    holdout = 900 
+    holdout = 5500 
+
+    print("NumPy Data loaded")
+
     x1 = torch.from_numpy(X1).to(device)
     x1 = torch.reshape(x1, (X1.shape[0], -1))
     x2 = torch.from_numpy(X2).to(device)
     x2 = torch.reshape(x2, (X2.shape[0], -1))
-    y = torch.from_numpy(Y).to(device)
-    train_dataset = Data.TensorDataset(x1[:holdout], x2[:holdout], y[:holdout])
+    y_frame = torch.from_numpy(Y_frame).to(device)
+    y_x = torch.from_numpy(Y_x).to(device)
+    y_y = torch.from_numpy(Y_y).to(device)
+
+    print("PyTorch Data loaded")
+
+    train_dataset = Data.TensorDataset(x1[:holdout], x2[:holdout], y_frame[:holdout], y_x[:holdout], y_y[:holdout])
     train_dataloader = Data.DataLoader(train_dataset, batch_size=200, shuffle=True)
-    val_dataset = Data.TensorDataset(x1[holdout:], x2[holdout:], y[holdout:])
+    val_dataset = Data.TensorDataset(x1[holdout:], x2[holdout:], y_frame[holdout:], y_x[holdout:], y_y[holdout:])
     val_dataloader = Data.DataLoader(train_dataset, batch_size=200, shuffle=True)
     
     EPOCHS = 1000
@@ -50,15 +62,24 @@ def train():
     val_loss = []
     for e in range(EPOCHS):
         for i, batch in enumerate(train_dataloader, 0):
-            train_x1, train_x2, train_y = batch
-            print(train_x2)
+            train_x1, train_x2, train_y_frame, train_y_x, train_y_y = batch
             inv_model.zero_grad()
             optimizer.zero_grad()
             # Train on first HOLDOUT points
             inv_model.train()
             output_frame, output_x, output_y = inv_model(train_x1.float(), train_x2.float())
-            loss = loss_function(outputs, train_y.float())
-            
+
+            # Convert to labels because CE loss expects class labels
+            train_y_frame_label = torch.max(train_y_frame, 1)[1]
+            train_y_x_label = torch.max(train_y_x, 1)[1]
+            train_y_y_label = torch.max(train_y_y, 1)[1]
+
+            loss_1 = loss_function(output_frame, train_y_frame_label)
+            loss_2 = loss_function(output_x, train_y_x_label)
+            loss_3 = loss_function(output_y, train_y_y_label)
+
+            # Aggregate the loss
+            loss = loss_1 + loss_2 + loss_3
             loss.backward()
             # Training loss
             tloss = loss.item()
@@ -69,9 +90,20 @@ def train():
         for i, batch in enumerate(val_dataloader, 0):
             # Validate on the rest
             inv_model.eval()
-            val_x1, val_x2, val_y = batch
-            val_outputs = inv_model(val_x1.float(), val_x2.float())
-            vloss = loss_function(val_outputs, val_y.float()).item()
+            val_x1, val_x2, val_y_frame, val_y_x, val_y_y = batch
+            val_output_frame, val_output_x, val_output_y = inv_model(val_x1.float(), val_x2.float())
+
+            # Convert to labels because CE loss expects class labels
+            val_y_frame_label = torch.max(val_y_frame, 1)[1]
+            val_y_x_label = torch.max(val_y_x, 1)[1]
+            val_y_y_label = torch.max(val_y_y, 1)[1]
+
+            vloss1 = loss_function(val_output_frame, val_y_frame_label)
+            vloss2 = loss_function(val_output_x, val_y_x_label)
+            vloss3 = loss_function(val_output_y, val_y_y_label)
+
+            vloss = vloss1 + vloss2 + vloss3
+
             val_loss.append(vloss)
             #if (i % 5) == 0:
             #    print("Epoch: ", e, "Iteration: ", i, " Validation Loss: ", vloss)

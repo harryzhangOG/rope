@@ -73,6 +73,8 @@ if __name__ == "__main__":
     s = []
     # Actions (labels)
     a = []
+    # One-hot encoded action labels
+    a_enc = []
     clear_scene()
     rope = make_capsule_rope(params)
     rope[0].rigid_body.mass *= 5
@@ -106,6 +108,11 @@ if __name__ == "__main__":
         keyf = random.sample(range(3, 20), 1)[0]
         # Record the random action
         at = np.array([keyf, np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1))])
+        # Encode the action into one-hot representation using histogram. 
+        # Note that the action space is coarsely discretized into arrays separated by 0.1
+        at_enc = np.array([np.histogram(at[0], bins = np.arange(3, 21))[0],
+                           np.histogram(at[1], bins = np.linspace(-3, 3, 61))[0],
+                           np.histogram(at[2], bins = np.linspace(-3, 3, 61))[0]])
         # Take the action step in sim
         take_action(rope[-1], frame_offset + 100 + at[0], (at[1], at[2], 0))
         print("Action taken: ", at)
@@ -117,6 +124,7 @@ if __name__ == "__main__":
         # blenderenv.add_camera_light()
         s.append(st)
         a.append(at)
+        a_enc.append(at_enc)
         frame_offset += 200
         # Delete all keyframes to make a new knot and reset the frame counter
         # bpy.context.scene.frame_set(0)
@@ -136,3 +144,4 @@ if __name__ == "__main__":
     save = os.path.join(os.getcwd(), 'states_actions')
     np.save(os.path.join(save, 'multistep_demo_states.npy'), s)
     np.save(os.path.join(save, 'multistep_demo_actions.npy'), a)
+    np.save(os.path.join(save, 'multistep_demo_actions_encoded.npy'), a_enc)

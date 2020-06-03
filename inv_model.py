@@ -38,8 +38,13 @@ class Inv_Model(nn.Module):
         self.fc5 = nn.Linear(384, 256)
         self.fc6 = nn.Linear(256, 200)
 
-        # Did not implement dim reduction via Bayes because the dim is low in this vanilla case.
-        self.fc_out_1 = nn.Linear(400, 3)
+        # Implemented dim reduction via Bayes as classification.
+        # "Velocity" action output
+        self.fc_out_1 = nn.Linear(400, 17)
+        # X action output --- discretize [-3, 3] to an array evenly separated by 0.1
+        self.fc_out_2 = nn.Linear(417, 60)
+        # Y action output --- discretize [-3, 3] to an array evenly separated by 0.1
+        self.fc_out_3 = nn.Linear(417+60, 60)
     def forward(self, x1, x2):
         # Stream 1
         x1 = F.elu(self.fc1(x1))
@@ -56,10 +61,19 @@ class Inv_Model(nn.Module):
         x2 = F.elu(self.fc5(x2))
         latent2 = F.elu(self.fc6(x2))
         # Concatenate the output latent tensors
-        # TODO: Verify the dimensions. Assuming the batch size dimension is 0
         latent = torch.cat((latent1, latent2), 1)
-        out = self.fc_out_1(latent)
-        return out
+        out_frame = F.elu(self.fc_out_1(latent))
+        softmax = nn.Softmax(dim=1)
+        # Convert to a distribution
+ #       out_frame = softmax(out_frame)
+        # Concatenate the latent tensors with the first action pred
+        lat_frame = torch.cat((latent, out_frame), 1)
+        out_x = F.relu(self.fc_out_2(lat_frame))
+#        out_x = softmax(out_x)
+        lat_frame_x = torch.cat((lat_frame, out_x), 1)
+        out_y = F.relu(self.fc_out_3(lat_frame_x))
+  #      out_y = softmax(out_y)
+        return out_frame, out_x, out_y
 
 
 

@@ -102,9 +102,9 @@ if __name__ == "__main__":
         params = json.load(f)
     
     # Simulation horizon T
-    T = 1000 
+    T = 10 
     # Visualiztion flag, if true, will render from the frame the action is applied. If False, will only render the final frame.
-    Vis = 0
+    Vis = 1
     # Source state
     s = []
     # Target state

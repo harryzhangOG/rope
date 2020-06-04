@@ -77,7 +77,7 @@ def move_rope_end(end, target, key_f):
         end.keyframe_insert(data_path="location", frame=fno)
     for i in range(50):
         bpy.context.scene.frame_set(i)
-
+# TODO: change to classificatio stuff
 def eval_inv(ckpt, s1, s2):
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -96,8 +96,8 @@ def eval_inv(ckpt, s1, s2):
         s1 = torch.reshape(s1, (-1, 100))
         s2 = torch.from_numpy(s2).to(device)
         s2 = torch.reshape(s2, (-1, 100))
-        output_action = inv_model(s1.float(), s2.float())
-        return output_action
+        output_frame, output_x, output_y = inv_model(s1.float(), s2.float())
+        return output_frame, output_x, output_y
 if __name__ == "__main__":
 
     # Checkpoint path
@@ -149,12 +149,23 @@ if __name__ == "__main__":
             # stp1_prime = torch.from_numpy(stp1_prime).to(device)
             # stp1_prime = torch.reshape(stp1_prime, (stp1_prime.shape[0], -1))
             # Use the trained inverse model to predict the action a_t
-            at_pred = eval_inv(ckpt, st, stp1_prime).numpy()[0]
+            frame_pred, x_pred, y_pred = eval_inv(ckpt, st, stp1_prime)
+            frame_pred = frame_pred.numpy()[0]
+            x_pred = x_pred.numpy()[0]
+            y_pred = y_pred.numpy()[0]
+            at_pred = []
+            at_pred.append(np.arange(3, 20)[np.argmax(frame_pred)])
+            at_pred.append(np.linspace(-3, 3, 61)[np.argmax(x_pred)])
+            at_pred.append(np.linspace(-3, 3, 61)[np.argmax(y_pred)])
             print("Timestep: ", t, " Ground truth action: ", multistep_demo_actions[t], " Predicted action: ", at_pred)
             # Take the predicted action which results in actual s_t+1
             take_action(rope[-1], render_offset + 100 + at_pred[0], (at_pred[1], at_pred[2], 0))
             for i in range(render_offset, render_offset + 200):
                 bpy.context.scene.frame_set(i)
+            for ac in bpy.data.actions:
+                bpy.data.actions.remove(ac) 
             render_offset += 200
+        for i in range(render_offset, render_offset + 200):
+            bpy.context.scene.frame_set(i)
     
 

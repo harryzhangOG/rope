@@ -86,8 +86,8 @@ def make_capsule_rope(params):
     link0.rigid_body.linear_damping = params["linear_damping"]
     link0.rigid_body.angular_damping = params["angular_damping"] # NOTE: this makes the rope a lot less wiggly
     #link0.rigid_body.collision_shape = 'CAPSULE'
-    bpy.context.scene.rigidbody_world.steps_per_second = 120
-    bpy.context.scene.rigidbody_world.solver_iterations = 20
+    bpy.context.scene.rigidbody_world.steps_per_second = 1000
+    bpy.context.scene.rigidbody_world.solver_iterations = 100
     for i in range(num_segments-1):
         bpy.ops.object.duplicate_move(TRANSFORM_OT_translate={"value":(-2*radius, 0, 0)})
     bpy.ops.object.select_all(action='SELECT')

@@ -107,7 +107,8 @@ if __name__ == "__main__":
         # Move the end link
         keyf = random.sample(range(3, 20), 1)[0]
         # Record the random action
-        at = np.array([keyf, np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1))])
+        # at = np.array([keyf, np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1))])
+        at = np.array([10, 1, 1])
         # Encode the action into one-hot representation using histogram. 
         # Note that the action space is coarsely discretized into arrays separated by 0.1
         at_enc = np.array([np.histogram(at[0], bins = np.arange(3, 21))[0],

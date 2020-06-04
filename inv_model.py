@@ -1,5 +1,4 @@
 import torch
-from builtins import super
 import torchvision
 import numpy as np
 import torch.nn as nn
@@ -31,7 +30,7 @@ For details, refer to https://arxiv.org/pdf/1703.02018.pdf
 class Inv_Model(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(100, 96)
+        self.fc1 = nn.Linear(180, 96)
         self.fc2 = nn.Linear(96, 256)
         self.fc3 = nn.Linear(256, 384)
         self.fc4 = nn.Linear(384, 384)

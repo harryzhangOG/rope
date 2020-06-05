@@ -87,15 +87,18 @@ if __name__ == "__main__":
     make_table(params)
     frame_offset = 0
     # Randomly perturb the rope
-    pert2 = random.sample(range(len(rope)), 1)[0]
-    for i in range(frame_offset, frame_offset + 50):
-        bpy.context.scene.frame_set(i)
-        if i == frame_offset + 30:
-           take_action(rope[-1], i, (0, 0, 0))
-           toggle_animation(rope[-1], i, False) 
-           take_action(rope[pert2], i, (0, 0, 0))
-           toggle_animation(rope[pert2], i, False) 
-    random_perturb(pert2, 30, rope, 0)
+    # pert2 = random.sample(range(len(rope)), 1)[0]
+    # for i in range(frame_offset, frame_offset + 50):
+    #     bpy.context.scene.frame_set(i)
+    #     if i == frame_offset + 30:
+    #        take_action(rope[-1], i, (0, 0, 0))
+    #        toggle_animation(rope[-1], i, False) 
+    #        take_action(rope[pert2], i, (0, 0, 0))
+    #        toggle_animation(rope[pert2], i, False) 
+    # random_perturb(pert2, 30, rope, 0)
+    a_a = np.array([[10, 2, 2],
+                 [10, 2, 2],
+                 [10, 2, 2], [10, 2, 2]])
     for t in range(T):
         print('Experiment Step: ', t)
         print('Current offset: ', frame_offset)
@@ -108,6 +111,7 @@ if __name__ == "__main__":
         keyf = random.sample(range(3, 20), 1)[0]
         # Record the random action
         at = np.array([keyf, np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1))])
+        # at = a_a[t]
         # Encode the action into one-hot representation using histogram. 
         # Note that the action space is coarsely discretized into arrays separated by 0.1
         at_enc = np.array([np.histogram(at[0], bins = np.arange(3, 21))[0],
@@ -118,7 +122,7 @@ if __name__ == "__main__":
         print("Action taken: ", at)
         if not Vis:
             # Then wait for another 100 frames for the rope to settle
-            for i in range(frame_offset + 100, frame_offset + 200):
+            for i in range(frame_offset, frame_offset + 200):
                 bpy.context.scene.frame_set(i)
         print('\n')
         # blenderenv.add_camera_light()
@@ -128,8 +132,12 @@ if __name__ == "__main__":
         frame_offset += 200
         # Delete all keyframes to make a new knot and reset the frame counter
         # bpy.context.scene.frame_set(0)
-        for ac in bpy.data.actions:
-            bpy.data.actions.remove(ac) 
+        # for ac in bpy.data.actions:
+        #     bpy.data.actions.remove(ac) 
+        save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
+        bpy.context.scene.render.filepath = os.path.join(save_render_path, 'gt_exp_%d_%d.jpg'%(num, t))
+        bpy.context.scene.camera.location = (0, 0, 60)
+        bpy.ops.render.render(write_still = True)
     st = []
     # Record terminal state
     for r in rope:

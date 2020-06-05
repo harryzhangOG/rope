@@ -17,6 +17,7 @@ import datetime
 from rigidbody_rope import *
 from inv_model import *
 import torch
+import argparse
 
 '''Usage: blender -P eval_rope_multi_step.py'''
 """
@@ -102,6 +103,12 @@ if __name__ == "__main__":
 
     # Checkpoint path
     ckpt = 'inv_model_ckpt.pth'
+    if '--' in sys.argv:
+        argv = sys.argv[sys.argv.index('--') + 1:]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-exp', '--exp_num', dest='exp_num', type=int)
+    args = parser.parse_known_args(argv)[0]
+    num = args.exp_num
    
 
     with open("rigidbody_params.json", "r") as f:
@@ -126,15 +133,15 @@ if __name__ == "__main__":
     # Therefore, the actions' length should be the T - 1
     multistep_demo_states = np.load(os.path.join(os.getcwd(), 'states_actions/multistep_demo_states.npy'))
     multistep_demo_actions = np.load(os.path.join(os.getcwd(), 'states_actions/multistep_demo_actions.npy'))
-    for i in range(50):
-        bpy.context.scene.frame_set(i)
-        if i == 30:
-            take_action(rope[-1], i, (0, 0, 0))
-            toggle_animation(rope[-1], i, False) 
-            take_action(rope[pert2], i, (0, 0, 0))
-            toggle_animation(rope[pert2], i, False) 
-    # Set st in sim
-    set_st(pert2, dx2, dy2, 30, rope, frame_end)
+    # for i in range(50):
+    #     bpy.context.scene.frame_set(i)
+    #     if i == 30:
+    #         take_action(rope[-1], i, (0, 0, 0))
+    #         toggle_animation(rope[-1], i, False) 
+    #         take_action(rope[pert2], i, (0, 0, 0))
+    #         toggle_animation(rope[pert2], i, False) 
+    # # Set st in sim
+    # set_st(pert2, dx2, dy2, 30, rope, frame_end)
     render_offset = 0
     # Iteratively predict the action
     with torch.no_grad():
@@ -156,5 +163,9 @@ if __name__ == "__main__":
             for i in range(render_offset, render_offset + 200):
                 bpy.context.scene.frame_set(i)
             render_offset += 200
+            save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
+            bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_exp_%d_%d.jpg'%(num, t))
+            bpy.context.scene.camera.location = (0, 0, 60)
+            bpy.ops.render.render(write_still = True)
     
 

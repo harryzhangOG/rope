@@ -49,28 +49,6 @@ def random_perturb(pert2, start_frame, rope, frame_offset):
     toggle_animation(p2_link, start_frame + 20, False)
     for i in range(start_frame + 10, frame_offset + 101):
         bpy.context.scene.frame_set(i)
-# def random_perturb(start_frame, rope, end_frame):
-#     pert1, pert2 = 0, 0
-#     while abs(pert1 - pert2) <= 5:
-#         pert1, pert2 = random.sample(range(len(rope)), 2)
-#     p1_link = rope[pert1]
-#     p2_link = rope[pert2]
-#     dx1 = np.random.uniform(0.5, 1) * random.choice((-1, 1))
-#     dy1 = np.random.uniform(0.5, 1) * random.choice((-1, 1))
-#     dz = 0
-#     dx2 = np.random.uniform(0.5, 1) * random.choice((-1, 1))
-#     dy2 = np.random.uniform(0.5, 1) * random.choice((-1, 1))
-#     print("Perturbation 1: ", pert1, dx1, dy1)
-#     print("Perturbation 2: ", pert2, dx2, dy2)
-#     for step in range(start_frame, start_frame + 10):
-#         bpy.context.scene.frame_set(step)
-    
-#     take_action(p1_link, start_frame, (dx1, dy1, dz))
-#     take_action(p2_link, start_frame + 10, (dx2, dy2, dz))
-#     toggle_animation(p1_link, start_frame + 20, False)
-#     toggle_animation(p2_link, start_frame + 20, False)
-#     for i in range(start_frame + 10, start_frame+30):
-#         bpy.context.scene.frame_set(i)
 
 def move_rope_end(end, target, key_f):
     """
@@ -102,7 +80,7 @@ if __name__ == "__main__":
         params = json.load(f)
     
     # Simulation horizon T
-    T = 1000 
+    T = 15000
     # Visualiztion flag, if true, will render from the frame the action is applied. If False, will only render the final frame.
     Vis = 0
     # Source state
@@ -113,12 +91,6 @@ if __name__ == "__main__":
     a = []
     # Encoded actions
     a_enc = []
-    # # Make a new Blender Env
-    # blenderenv = BlenderEnv(params)
-    # # Make a new rope
-    # clear_scene()
-    # blenderenv.make_table(params)
-    # # rope = blenderenv.make_rope("capsule_12_8_1_2.stl")
     # rope = make_capsule_rope(params)
     # blenderenv.rig_rope(params)
     clear_scene()
@@ -127,30 +99,42 @@ if __name__ == "__main__":
     rope[-1].rigid_body.mass *= 2
     rig_rope(params)
     add_camera_light()
-    frame_end = 250 * 3000
+    frame_end = 250 * 300
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
     make_table(params)
     frame_offset = 0
     for t in range(T):
+        # We clear everything every 20 iterations
+        if t and t % 20 == 0:
+            bpy.context.scene.frame_set(0)
+            for ac in bpy.data.actions:
+                bpy.data.actions.remove(ac)
+
+            # bpy.context.scene.render.filepath = '/Users/harryzhang/Desktop/save.jpg'
+            # bpy.context.scene.camera.location = (0, 0, 60)
+            # bpy.ops.render.render(write_still = True)
+
+            frame_offset = 0
         print('Experiment Number: ', t)
         print('Current offset: ', frame_offset)
         st = []
         stp1 = []
-        # Randomly perturb the rope
-        # idx = random.randint(0, len(rope) - 1)
-        # idx_target = [rope[idx].matrix_world.to_translation()[0], rope[idx].matrix_world.to_translation()[1] + random.uniform(-2.5, 2.5), rope[idx].matrix_world.to_translation()[2]]
-        # print("Perturbation: ", idx, idx_target)
-        # move_rope_end(rope[idx], idx_target, 10)
         pert2 = random.sample(range(len(rope)), 1)[0]
-        for i in range(frame_offset, frame_offset + 50):
-            bpy.context.scene.frame_set(i)
-            if i == frame_offset + 30:
-               take_action(rope[-1], i, (0, 0, 0))
-               toggle_animation(rope[-1], i, False) 
-               take_action(rope[pert2], i, (0, 0, 0))
-               toggle_animation(rope[pert2], i, False) 
-        random_perturb(pert2, frame_offset + 30, rope, frame_offset)
+        # for i in range(frame_offset, frame_offset + 50):
+        #     bpy.context.scene.frame_set(i)
+            # if i == frame_offset + 30:
+            #    take_action(rope[-1], i, (0, 0, 0))
+            #    toggle_animation(rope[-1], i, False) 
+            #    take_action(rope[pert2], i, (0, 0, 0))
+            #    toggle_animation(rope[pert2], i, False) 
+        # random_perturb(pert2, frame_offset, rope, frame_offset)
+
+        # Debugging : render the images
+        # bpy.context.scene.render.filepath = '/Users/harryzhang/Desktop/st_%d.jpg'%(t)
+        # bpy.context.scene.camera.location = (0, 0, 60)
+        # bpy.ops.render.render(write_still = True)
+
         # Wait for the rope to settle in the scene
         
         # FIRST, WAIT 100 FRAMES, this was done in random perturb.
@@ -163,18 +147,18 @@ if __name__ == "__main__":
         # Move the end link
         keyf = random.sample(range(3, 20), 1)[0]
         # Record the random action
-        at = np.array([keyf, np.random.uniform(0.5, 2) * random.choice((-1, 1)), np.random.uniform(0.5, 2) * random.choice((-1, 1))])
+        at = np.array([keyf, np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1))])
         # Encode the action into one-hot representation using histogram. 
         # Note that the action space is coarsely discretized into arrays separated by 0.1
         at_enc = np.array([np.histogram(at[0], bins = np.arange(3, 21))[0],
                            np.histogram(at[1], bins = np.linspace(-3, 3, 61))[0],
                            np.histogram(at[2], bins = np.linspace(-3, 3, 61))[0]])
         # Take the action step in sim
-        take_action(rope[-1], frame_offset + 100 + at[0], (at[1], at[2], 0))
+        take_action(rope[-1], frame_offset + at[0], (at[1], at[2], 0))
         print("Action taken: ", at)
         if not Vis:
             # Then wait for another 100 frames for the rope to settle
-            for i in range(frame_offset + 100, frame_offset + 200):
+            for i in range(frame_offset, frame_offset + 200):
                 bpy.context.scene.frame_set(i)
         # Record all links' locations as s_t+1 at frame 200:
         for r in rope:
@@ -191,19 +175,15 @@ if __name__ == "__main__":
         a.append(at)
         a_enc.append(at_enc)
         frame_offset += 200
-        # Delete all keyframes to make a new knot and reset the frame counter
-        # bpy.context.scene.frame_set(0)
-        for ac in bpy.data.actions:
-            bpy.data.actions.remove(ac) 
     
 
     # Save the npy files
     if not os.path.exists("./states_actions"):
         os.makedirs('./states_actions')
     save = os.path.join(os.getcwd(), 'states_actions')
-    np.save(os.path.join(save, 's_' + str(num) + '.npy'), s)
-    np.save(os.path.join(save, 'sp1_'+ str(num) + '.npy'), sp1)
-    np.save(os.path.join(save, 'a_' + str(num) + '.npy'), a)
+    np.save(os.path.join(save, 's.npy'), s)
+    np.save(os.path.join(save, 'sp1.npy'), sp1)
+    np.save(os.path.join(save, 'a.npy'), a)
     # Here the encoded action and the action numpy array should have the same shapes (3 x #iterations), but in the encoded action,
     # each of the three items is another numpy array, representing the one-hot encoded action
     np.save(os.path.join(save, 'a_enc_' + str(num) + '.npy'), a_enc)

@@ -44,12 +44,12 @@ def random_perturb(pert2, start_frame, rope, frame_offset):
     dy2 = np.random.uniform(0.8, 2) * random.choice((-1, 1))
     print("Perturbation 1: ", pert2, dx2, dy2)
     np.save(os.path.join(os.getcwd(), 'states_actions/multistep_pert.npy'), np.array([pert2, dx2, dy2]))
-    for step in range(start_frame, start_frame + 10):
-        bpy.context.scene.frame_set(step)
+    # for step in range(start_frame, start_frame + 10):
+    #     bpy.context.scene.frame_set(step)
     take_action(p2_link, start_frame + 20, (dx2, dy2, dz))
     toggle_animation(p2_link, start_frame + 20, False)
-    for i in range(start_frame + 10, frame_offset + 101):
-        bpy.context.scene.frame_set(i)
+    # for i in range(start_frame + 10, frame_offset + 101):
+    #     bpy.context.scene.frame_set(i)
 
 
 import argparse
@@ -87,7 +87,6 @@ if __name__ == "__main__":
     make_table(params)
     frame_offset = 0
     # Randomly perturb the rope
-    # pert2 = random.sample(range(len(rope)), 1)[0]
     # for i in range(frame_offset, frame_offset + 50):
     #     bpy.context.scene.frame_set(i)
     #     if i == frame_offset + 30:
@@ -95,10 +94,15 @@ if __name__ == "__main__":
     #        toggle_animation(rope[-1], i, False) 
     #        take_action(rope[pert2], i, (0, 0, 0))
     #        toggle_animation(rope[pert2], i, False) 
-    # random_perturb(pert2, 30, rope, 0)
-    a_a = np.array([[10, 2, 2],
-                 [10, 2, 2],
-                 [10, 2, 2], [10, 2, 2]])
+
+    # If we want to perturb the rope
+    perturb = 1
+    if perturb: 
+        pert2 = random.sample(range(len(rope)), 1)[0]
+        random_perturb(pert2, 30, rope, 0)
+    a_a = np.array([[15, 2, 2],
+                 [15, 1, 2],
+                 [15, 1, 2], [15, 0, 2]])
     for t in range(T):
         print('Experiment Step: ', t)
         print('Current offset: ', frame_offset)
@@ -124,6 +128,16 @@ if __name__ == "__main__":
             # Then wait for another 100 frames for the rope to settle
             for i in range(frame_offset, frame_offset + 200):
                 bpy.context.scene.frame_set(i)
+                if i == 50 and perturb:
+                    save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
+                    bpy.context.scene.render.filepath = os.path.join(save_render_path, 'gt_perturb_exp_%d.jpg'%(num))
+                    bpy.context.scene.camera.location = (0, 0, 60)
+                    bpy.ops.render.render(write_still = True)
+                if i % 10 == 0:
+                    save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep/video/gt')
+                    bpy.context.scene.render.filepath = os.path.join(save_render_path, 'expgt_%d_frame_%03d.jpg'%(num, i))
+                    bpy.context.scene.camera.location = (0, 0, 60)
+                    bpy.ops.render.render(write_still = True)
         print('\n')
         # blenderenv.add_camera_light()
         s.append(st)

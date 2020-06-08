@@ -55,8 +55,8 @@ def set_st(pert2, dx2, dy2, start_frame, rope, end_frame):
     p2_link = rope[pert2]
     dz = 0
     print("Perturbation 1: ", pert2, dx2, dy2)
-    for step in range(start_frame, start_frame + 10):
-        bpy.context.scene.frame_set(step)
+    # for step in range(start_frame, start_frame + 10):
+    #     bpy.context.scene.frame_set(step)
     take_action(p2_link, start_frame + 20, (dx2, dy2, dz))
     toggle_animation(p2_link, start_frame + 20, False)
 
@@ -123,6 +123,15 @@ if __name__ == "__main__":
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
     make_table(params) 
+    # Add ref cube
+    bpy.ops.mesh.primitive_cube_add(location=(10.94979668,0.53924209, 0.25), size=0.5)
+    bpy.ops.rigidbody.object_add()
+    ref = bpy.context.object
+    ref.rigid_body.type = 'PASSIVE'
+    mat = bpy.data.materials.new(name="red")
+    ref.data.materials.append(mat)
+    bpy.context.object.active_material.diffuse_color = (1, 0, 0, 0)    
+    bpy.ops.object.select_all(action='DESELECT')
     # Perturbation taken to make s0, load the random perturbation
     pert = np.load(os.path.join(os.getcwd(), 'states_actions/multistep_pert.npy')) 
     pert2 = int(pert[0])
@@ -141,7 +150,11 @@ if __name__ == "__main__":
     #         take_action(rope[pert2], i, (0, 0, 0))
     #         toggle_animation(rope[pert2], i, False) 
     # # Set st in sim
-    # set_st(pert2, dx2, dy2, 30, rope, frame_end)
+    
+    # If we want to perturb the rope
+    perturb = 1
+    if perturb: 
+        set_st(pert2, dx2, dy2, 30, rope, frame_end)
     render_offset = 0
     # Iteratively predict the action
     with torch.no_grad():
@@ -162,10 +175,31 @@ if __name__ == "__main__":
             take_action(rope[-1], render_offset + 100 + at_pred[0], (at_pred[1], at_pred[2], 0))
             for i in range(render_offset, render_offset + 200):
                 bpy.context.scene.frame_set(i)
+                if i == 50 and perturb:
+                    save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
+                    bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_perturb_exp_%d.jpg'%(num))
+                    bpy.context.scene.camera.location = (0, 0, 60)
+                    bpy.ops.render.render(write_still = True)
+                if i % 10 == 0:
+                    save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep/video/pred')
+                    bpy.context.scene.render.filepath = os.path.join(save_render_path, 'exppred_%d_frame_%03d.jpg'%(num, i))
+                    bpy.context.scene.camera.location = (0, 0, 60)
+                    bpy.ops.render.render(write_still = True)
+
             render_offset += 200
             save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
             bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_exp_%d_%d.jpg'%(num, t))
             bpy.context.scene.camera.location = (0, 0, 60)
             bpy.ops.render.render(write_still = True)
+
+        # Evaluate terminal state error
+        gt_free_end = multistep_demo_states[-1, 0, :]
+        pred_free_end = np.array(rope[0].matrix_world.translation)[:2]
+        print("Ground truth rope free end location: ", gt_free_end)
+        print("Predicted rope free end location: ", pred_free_end)
+        # Calculate error
+        mse_diff = np.linalg.norm(gt_free_end - pred_free_end)**2
+        print("Terminal state free end MSE: %03f" %(mse_diff))
+        
     
 

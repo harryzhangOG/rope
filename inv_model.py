@@ -26,6 +26,7 @@ class Inv_Model(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(100, 96)
+        self.fc1_1 = nn.Linear(3, 96)
         self.fc2 = nn.Linear(96, 256)
         self.fc3 = nn.Linear(256, 384)
         self.fc4 = nn.Linear(384, 384)
@@ -43,7 +44,7 @@ class Inv_Model(nn.Module):
         x1 = F.elu(self.fc5(x1))
         latent1 = F.elu(self.fc6(x1))
         # Stream 2
-        x2 = F.elu(self.fc1(x2))
+        x2 = F.elu(self.fc1_1(x2))
         x2 = F.elu(self.fc2(x2))
         x2 = F.elu(self.fc3(x2))
         x2 = F.elu(self.fc4(x2))

@@ -30,6 +30,7 @@ def take_action(obj, frame, action_vec, animate=True):
     toggle_animation(obj, curr_frame, animate)
     obj.location += Vector((dx,dy,dz))
     obj.keyframe_insert(data_path="location", frame=frame)
+    toggle_animation(obj, curr_frame+10, False)
 
 
 def toggle_animation(obj, frame, animate):
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         params = json.load(f)
     
     # Simulation horizon T
-    T = 15000
+    T = 20
     # Visualiztion flag, if true, will render from the frame the action is applied. If False, will only render the final frame.
     Vis = 0
     # Source state
@@ -95,18 +96,19 @@ if __name__ == "__main__":
     # blenderenv.rig_rope(params)
     clear_scene()
     rope = make_capsule_rope(params)
+    # rope = make_rope_v3(params)
     rope[0].rigid_body.mass *= 5
     rope[-1].rigid_body.mass *= 2
     rig_rope(params)
     add_camera_light()
-    frame_end = 250 * 300
+    frame_end = 250 * 30
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
     make_table(params)
     frame_offset = 0
     for t in range(T):
         # We clear everything every 20 iterations
-        if t and t % 20 == 0:
+        if t and t % 10 == 0:
             bpy.context.scene.frame_set(0)
             for ac in bpy.data.actions:
                 bpy.data.actions.remove(ac)
@@ -145,22 +147,22 @@ if __name__ == "__main__":
         st = np.array(st)
         
         # Move the end link
-        keyf = random.sample(range(3, 20), 1)[0]
+        # keyf = random.sample(range(5, 20), 1)[0]
+        keyf = 10
         # Record the random action
-        at = np.array([keyf, np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1))])
+        at = np.array([np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 2)])
         # Encode the action into one-hot representation using histogram. 
         # Note that the action space is coarsely discretized into arrays separated by 0.1
-        at_enc = np.array([np.histogram(at[0], bins = np.arange(3, 21))[0],
+        at_enc = np.array([np.histogram(at[0], bins = np.linspace(-3, 3, 61))[0],
                            np.histogram(at[1], bins = np.linspace(-3, 3, 61))[0],
-                           np.histogram(at[2], bins = np.linspace(-3, 3, 61))[0]])
+                           np.histogram(at[2], bins = np.linspace(0.5, 2, 16))[0]])
         # Take the action step in sim
-        take_action(rope[-1], frame_offset + at[0], (at[1], at[2], 0))
+        take_action(rope[-1], frame_offset + keyf, (at[0], at[1], at[2]))
         print("Action taken: ", at)
         if not Vis:
-            # Then wait for another 100 frames for the rope to settle
-            for i in range(frame_offset, frame_offset + 200):
+            for i in range(frame_offset, frame_offset + 100):
                 bpy.context.scene.frame_set(i)
-        # Record all links' locations as s_t+1 at frame 200:
+        # Record all links' locations as s_t+1 at frame 100:
         for r in rope:
             stp1_loc = r.matrix_world.to_translation()
             # print("New state location: ", stp1_loc)
@@ -174,7 +176,7 @@ if __name__ == "__main__":
         sp1.append(stp1)
         a.append(at)
         a_enc.append(at_enc)
-        frame_offset += 200
+        frame_offset += 100
     
 
     # Save the npy files

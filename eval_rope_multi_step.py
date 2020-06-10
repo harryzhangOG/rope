@@ -142,14 +142,6 @@ if __name__ == "__main__":
     # Therefore, the actions' length should be the T - 1
     multistep_demo_states = np.load(os.path.join(os.getcwd(), 'states_actions/multistep_demo_states.npy'))
     multistep_demo_actions = np.load(os.path.join(os.getcwd(), 'states_actions/multistep_demo_actions.npy'))
-    # for i in range(50):
-    #     bpy.context.scene.frame_set(i)
-    #     if i == 30:
-    #         take_action(rope[-1], i, (0, 0, 0))
-    #         toggle_animation(rope[-1], i, False) 
-    #         take_action(rope[pert2], i, (0, 0, 0))
-    #         toggle_animation(rope[pert2], i, False) 
-    # # Set st in sim
     
     # If we want to perturb the rope
     perturb = 1
@@ -171,9 +163,14 @@ if __name__ == "__main__":
             # Use the trained inverse model to predict the action a_t
             at_pred = eval_inv(ckpt, st, stp1_prime).numpy()[0]
             print("Timestep: ", t, " Ground truth action: ", multistep_demo_actions[t], " Predicted action: ", at_pred)
-            # Take the predicted action which results in actual s_t+1
-            take_action(rope[-1], render_offset + 100 + at_pred[0], (at_pred[1], at_pred[2], 0))
-            for i in range(render_offset, render_offset + 200):
+            
+            # Take the predicted action which results in actual s_t+1, if PERTURB, need 100 frame to buffer
+            if perturb: 
+                take_action(rope[-1], frame_offset + 110, (at[0], at[1], at[2]))
+            else:
+                take_action(rope[-1], frame_offset + 10, (at[0], at[1], at[2]))
+
+            for i in range(render_offset, render_offset + 100):
                 bpy.context.scene.frame_set(i)
                 if i == 50 and perturb:
                     save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
@@ -186,7 +183,7 @@ if __name__ == "__main__":
                     bpy.context.scene.camera.location = (0, 0, 60)
                     bpy.ops.render.render(write_still = True)
 
-            render_offset += 200
+            render_offset += 100
             save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
             bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_exp_%d_%d.jpg'%(num, t))
             bpy.context.scene.camera.location = (0, 0, 60)

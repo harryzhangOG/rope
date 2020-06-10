@@ -86,14 +86,6 @@ if __name__ == "__main__":
     bpy.context.scene.frame_end = frame_end
     make_table(params)
     frame_offset = 0
-    # Randomly perturb the rope
-    # for i in range(frame_offset, frame_offset + 50):
-    #     bpy.context.scene.frame_set(i)
-    #     if i == frame_offset + 30:
-    #        take_action(rope[-1], i, (0, 0, 0))
-    #        toggle_animation(rope[-1], i, False) 
-    #        take_action(rope[pert2], i, (0, 0, 0))
-    #        toggle_animation(rope[pert2], i, False) 
 
     # If we want to perturb the rope
     perturb = 1
@@ -112,21 +104,26 @@ if __name__ == "__main__":
             st.append(np.array(st_loc)[:2])
         st = np.array(st)
         # Move the end link
-        keyf = random.sample(range(3, 20), 1)[0]
+        # keyf = random.sample(range(3, 20), 1)[0]
+        keyf = 10
         # Record the random action
-        at = np.array([keyf, np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1))])
+        at = np.array([np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 2)])
         # at = a_a[t]
         # Encode the action into one-hot representation using histogram. 
         # Note that the action space is coarsely discretized into arrays separated by 0.1
-        at_enc = np.array([np.histogram(at[0], bins = np.arange(3, 21))[0],
+        at_enc = np.array([np.histogram(at[0], bins = np.linspace(-3, 3, 61))[0],
                            np.histogram(at[1], bins = np.linspace(-3, 3, 61))[0],
-                           np.histogram(at[2], bins = np.linspace(-3, 3, 61))[0]])
+                           np.histogram(at[2], bins = np.linspace(0.5, 2, 16))[0]])
         # Take the action step in sim
-        take_action(rope[-1], frame_offset + 100 + at[0], (at[1], at[2], 0))
+        if perturb: 
+            take_action(rope[-1], frame_offset + 110, (at[0], at[1], at[2]))
+        else:
+            take_action(rope[-1], frame_offset + 10, (at[0], at[1], at[2]))
+
         print("Action taken: ", at)
         if not Vis:
             # Then wait for another 100 frames for the rope to settle
-            for i in range(frame_offset, frame_offset + 200):
+            for i in range(frame_offset, frame_offset + 100):
                 bpy.context.scene.frame_set(i)
                 if i == 50 and perturb:
                     save_render_path = os.path.join(os.getcwd(), 'inv_model_15k_multistep')
@@ -143,7 +140,7 @@ if __name__ == "__main__":
         s.append(st)
         a.append(at)
         a_enc.append(at_enc)
-        frame_offset += 200
+        frame_offset += 100
         # Delete all keyframes to make a new knot and reset the frame counter
         # bpy.context.scene.frame_set(0)
         # for ac in bpy.data.actions:

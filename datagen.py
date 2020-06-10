@@ -30,7 +30,8 @@ def take_action(obj, frame, action_vec, animate=True):
     toggle_animation(obj, curr_frame, animate)
     obj.location += Vector((dx,dy,dz))
     obj.keyframe_insert(data_path="location", frame=frame)
-    toggle_animation(obj, curr_frame+10, False)
+    # Assume the held end is always held, so we do not drop it
+    # toggle_animation(obj, curr_frame+10, False)
 
 
 def toggle_animation(obj, frame, animate):
@@ -81,7 +82,7 @@ if __name__ == "__main__":
         params = json.load(f)
     
     # Simulation horizon T
-    T = 20
+    T = 50_000
     # Visualiztion flag, if true, will render from the frame the action is applied. If False, will only render the final frame.
     Vis = 0
     # Source state
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     frame_offset = 0
     for t in range(T):
         # We clear everything every 20 iterations
-        if t and t % 10 == 0:
+        if t and t % 20 == 0:
             bpy.context.scene.frame_set(0)
             for ac in bpy.data.actions:
                 bpy.data.actions.remove(ac)
@@ -149,12 +150,14 @@ if __name__ == "__main__":
         # Move the end link
         # keyf = random.sample(range(5, 20), 1)[0]
         keyf = 10
+        # dz needs some special handling
+        dz = np.random.uniform(-rope[-1].matrix_world.translation[2], 2)
         # Record the random action
-        at = np.array([np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 3) * random.choice((-1, 1)), np.random.uniform(0.5, 2)])
+        at = np.array([np.random.uniform(0.2, 2) * random.choice((-1, 1)), np.random.uniform(0.2, 2) * random.choice((-1, 1)), dz])
         # Encode the action into one-hot representation using histogram. 
         # Note that the action space is coarsely discretized into arrays separated by 0.1
-        at_enc = np.array([np.histogram(at[0], bins = np.linspace(-3, 3, 61))[0],
-                           np.histogram(at[1], bins = np.linspace(-3, 3, 61))[0],
+        at_enc = np.array([np.histogram(at[0], bins = np.linspace(-2, 2, 41))[0],
+                           np.histogram(at[1], bins = np.linspace(-2, 2, 41))[0],
                            np.histogram(at[2], bins = np.linspace(0.5, 2, 16))[0]])
         # Take the action step in sim
         take_action(rope[-1], frame_offset + keyf, (at[0], at[1], at[2]))

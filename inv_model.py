@@ -27,7 +27,9 @@ class Inv_Model(nn.Module):
         super().__init__()
         # S_t stream
         self.fc1 = nn.Linear(100, 96)
+        nn.init.xavier_uniform_(self.fc1.weight)
         self.fc2 = nn.Linear(96, 256)
+        nn.init.xavier_uniform_(self.fc2.weight)
         self.fc3 = nn.Linear(256, 384)
         #self.fc4 = nn.Linear(384, 384)
         #self.fc5 = nn.Linear(384, 256)

@@ -28,14 +28,14 @@ def train():
 #    checkpoint = torch.load(ckpt, map_location=device)
 #    inv_model.load_state_dict(checkpoint['model_state_dict'])
 #    optimizer = optim.Adam(inv_model.parameters(), lr=1e-3, weight_decay=1e-4)
-    optimizer = optim.SGD(inv_model.parameters(), lr=1e-3, momentum=0.9)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.5)
+    optimizer = optim.SGD(inv_model.parameters(), lr=5e-4, momentum=0.9, weight_decay=1e-4)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.7)
     loss_function = nn.MSELoss()
     # TODO: Load Training and Testing data
     path = os.path.join(os.getcwd(), 'states_actions')
     X1 = np.load(os.path.join(path, 's.npy'))
     print(X1.shape)
-    X2 = np.load(os.path.join(path, 'sp1.npy'))[:, 0, :]
+    X2 = np.load(os.path.join(path, 'sp1.npy'))
     Y = np.load(os.path.join(path, 'a.npy'))
     # TODO: Finalize how many training points/validation points we want
     holdout = 45000

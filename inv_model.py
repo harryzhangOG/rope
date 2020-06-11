@@ -27,38 +27,46 @@ class Inv_Model(nn.Module):
         super().__init__()
         # S_t stream
         self.fc1 = nn.Linear(100, 96)
-        nn.init.xavier_uniform_(self.fc1.weight)
         self.fc2 = nn.Linear(96, 256)
-        nn.init.xavier_uniform_(self.fc2.weight)
         self.fc3 = nn.Linear(256, 384)
-        #self.fc4 = nn.Linear(384, 384)
-        #self.fc5 = nn.Linear(384, 256)
-        self.fc6 = nn.Linear(384, 200)
+        self.fc4 = nn.Linear(384, 384)
+        self.fc5 = nn.Linear(384, 256)
+        self.fc6 = nn.Linear(256, 200)
         # S_{t+1} (partially observed) stream
-        self.fc1_1 = nn.Linear(2, 24)
-        self.fc2_1 = nn.Linear(24, 48)
+        #self.fc1_1 = nn.Linear(2, 24)
+        #self.fc2_1 = nn.Linear(24, 48)
         # a_t stream
-        self.fc1_2 = nn.Linear(3, 48)
-        self.fc2_2 = nn.Linear(48, 96)
+        self.fc1_2 = nn.Linear(3, 24)
+        self.fc2_2 = nn.Linear(24, 48)
+        self.fc3_2 = nn.Linear(48, 96)
+        self.fc4_2 = nn.Linear(96, 100)
 
         # Concat encodings of s_t and o_{t+1}, predict a_t
-        self.fc_out_1 = nn.Linear(248, 3)
+        self.fc_out_1 = nn.Linear(400, 3)
         # Concat encodings of s_t and a_t, predict o_{t+1}
-        self.fc_out_2 = nn.Linear(296, 2)
+        self.fc_out_2 = nn.Linear(300, 100)
     def forward(self, x1, x2, x3):
         # Stream 1
         x1 = F.relu(self.fc1(x1))
         x1 = F.relu(self.fc2(x1))
         x1 = F.relu(self.fc3(x1))
-#        x1 = F.relu(self.fc4(x1))
-#        x1 = F.relu(self.fc5(x1))
+        x1 = F.relu(self.fc4(x1))
+        x1 = F.relu(self.fc5(x1))
         latent1 = F.relu(self.fc6(x1))
         # Stream 2
-        x2 = F.relu(self.fc1_1(x2))
-        latent2 = F.relu(self.fc2_1(x2))
+#        x2 = F.relu(self.fc1_1(x2))
+#        latent2 = F.relu(self.fc2_1(x2))
+        x2 = F.relu(self.fc1(x2))
+        x2 = F.relu(self.fc2(x2))
+        x2 = F.relu(self.fc3(x2))
+        x2 = F.relu(self.fc4(x2))
+        x2 = F.relu(self.fc5(x2))
+        latent2 = F.relu(self.fc6(x2))
         # Stream 3
         x3 = F.relu(self.fc1_2(x3))
-        latent3 = F.relu(self.fc2_2(x3))
+        x3 = F.relu(self.fc2_2(x3))
+        x3 = F.relu(self.fc3_2(x3))
+        latent3 = F.relu(self.fc4_2(x3))
         # Concatenate the output latent tensors
         # TODO: Verify the dimensions. Assuming the batch size dimension is 0
         cat1 = torch.cat((latent1, latent2), 1)

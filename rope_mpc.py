@@ -76,9 +76,9 @@ def load_fwd(ckpt):
     fwd_model.to(device)
     checkpoint = torch.load(ckpt, map_location=device)
     fwd_model.load_state_dict(checkpoint['model_state_dict'])
-    return fwd_model
+    return device, fwd_model
 
-def eval_fwd(fwd_model, st, at):
+def eval_fwd(fwd_model, st, at, device):
     fwd_model.eval()
     # Cast to Torch tensors
     with torch.no_grad():
@@ -86,16 +86,16 @@ def eval_fwd(fwd_model, st, at):
         st = torch.reshape(st, (-1, 100))
         at = torch.from_numpy(at).to(device)
         at = torch.reshape(at, (-1, 3))
-        output_stp1 = fwd_model(st.float(), stp1.float())
+        output_stp1 = fwd_model(st.float(), at.float())
         return output_stp1
 
-def mpc(fwd_model, st, stpN_prime, T, N, residual):
+def mpc(fwd_model, st, stpN_prime, T, N, residual, device):
     """
     Given current state s_t and demo state s_{t+N}', calculate the sequence {a_t, ..., a_{t+N-1}}.
     Return a_t
     """
     # Define cost function as the squared L2 diff between gt stpN_prime and predicted stpN
-    cost = lambda stpN: np.linalg.norm(stpN[0, :] - stpN_prime[0, :])**2
+    cost = lambda stpN: np.linalg.norm(stpN[:2] - stpN_prime[0, :])**2
     # Allocate cost values map
     c_val = {}
     # Optimization loop
@@ -108,12 +108,12 @@ def mpc(fwd_model, st, stpN_prime, T, N, residual):
         if residual < N:
             for t in range(residual - 1):
                 at = np.array([np.random.uniform(0.2, 2) * random.choice((-1, 1)), np.random.uniform(0.2, 2) * random.choice((-1, 1)), np.random.uniform(0.2, 2) * random.choice((-1, 1))])
-                st = eval_fwd(fwd_model, st, at)
+                st = eval_fwd(fwd_model, st, at, device).numpy()[0]
                 actions.append(at)
         else:    
             for t in range(N - 1):
                 at = np.array([np.random.uniform(0.2, 2) * random.choice((-1, 1)), np.random.uniform(0.2, 2) * random.choice((-1, 1)), np.random.uniform(0.2, 2) * random.choice((-1, 1))])
-                st = eval_fwd(fwd_model, st, at)
+                st = eval_fwd(fwd_model, st, at, device).numpy()[0]
                 actions.append(at)
         # Calculate current cost-to-go for comparison online
         cost_to_go = cost(st)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # Checkpoint path
     ckpt = 'fwd_model_ckpt_3d.pth'
     # Load forward model aka system model
-    fwd_model = load_fwd(ckpt)
+    device, fwd_model = load_fwd(ckpt)
 
     if '--' in sys.argv:
         argv = sys.argv[sys.argv.index('--') + 1:]
@@ -200,7 +200,7 @@ if __name__ == "__main__":
             else:
                 stpN_prime = multistep_demo_states[t + N]
             # Use MPC based on trained fwd model to predict the action a_t
-            min_ctg, at_pred = mpc(fwd_model, st, stpN_prime, T, N, residual)
+            min_ctg, at_pred = mpc(fwd_model, st, stpN_prime, T, N, residual, device)
             print("Timestep: ", t, " Ground truth action: ", multistep_demo_actions[t], " Predicted action: ", at_pred, " Min cost-to-go", min_ctg)
             
             # Take the predicted action which results in actual s_t+1, if PERTURB, need 100 frame to buffer

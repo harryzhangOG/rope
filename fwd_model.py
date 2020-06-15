@@ -23,9 +23,13 @@ class Fwd_Model(nn.Module):
         self.fc5 = nn.Linear(384, 256)
         self.fc6 = nn.Linear(256, 200)
         
-        self.fc1_1 = nn.Linear(3, 24)
-        self.fc2_1 = nn.Linear(24, 48)
-        self.fc3_1 = nn.Linear(48, 100)
+        self.fc1_1 = nn.Linear(3, 6)
+        self.fc2_1 = nn.Linear(6, 12)
+        self.fc3_1 = nn.Linear(12, 24)
+        self.fc4_1 = nn.Linear(24, 48)
+        self.fc5_1 = nn.Linear(48, 96)
+        self.fc6_1 = nn.Linear(96, 96)
+        self.fc7_1 = nn.Linear(96, 100)
 
         # Did not implement dim reduction via Bayes because the dim is low in this vanilla case.
         self.fc_out_1 = nn.Linear(300, 100)
@@ -40,7 +44,11 @@ class Fwd_Model(nn.Module):
         # Stream 2
         x2 = F.elu(self.fc1_1(x2))
         x2 = F.elu(self.fc2_1(x2))
-        latent2 = F.elu(self.fc3_1(x2))
+        x2 = F.elu(self.fc3_1(x2))
+        x2 = F.elu(self.fc4_1(x2))
+        x2 = F.elu(self.fc5_1(x2))
+        x2 = F.elu(self.fc6_1(x2))
+        latent2 = F.elu(self.fc7_1(x2))
         # Concatenate the output latent tensors
         # TODO: Verify the dimensions. Assuming the batch size dimension is 0
         latent = torch.cat((latent1, latent2), 1)

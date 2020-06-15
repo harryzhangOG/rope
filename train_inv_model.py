@@ -1,4 +1,5 @@
 from inv_model import *
+from fwd_model import *
 import torch
 import matplotlib.pyplot as plt
 import torch.nn as nn
@@ -24,10 +25,13 @@ def train():
     # Inverse model net
     inv_model = Inv_Model()
     inv_model.to(device)
+    # Forward model net
+    fwd_model = Fwd_Model()
+    fwd_model.to(device)
     ckpt = 'inv_model_ckpt.pth'
-    checkpoint = torch.load(ckpt, map_location=device)
-    inv_model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer = optim.Adam(inv_model.parameters(), lr=1e-4)
+#    checkpoint = torch.load(ckpt, map_location=device)
+#    inv_model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer = optim.Adam(list(inv_model.parameters()) + list(fwd_model.parameters()), lr=1e-4)
     loss_function = nn.MSELoss()
     # TODO: Load Training and Testing data
     path = os.path.join(os.getcwd(), 'states_actions')
@@ -36,7 +40,7 @@ def train():
     X2 = np.load(os.path.join(path, 'sp1.npy'))
     Y = np.load(os.path.join(path, 'a.npy'))
     # TODO: Finalize how many training points/validation points we want
-    holdout = 5500 
+    holdout = 45000 
     x1 = torch.from_numpy(X1).to(device)
     x1 = torch.reshape(x1, (X1.shape[0], -1))
     x2 = torch.from_numpy(X2).to(device)
@@ -54,32 +58,49 @@ def train():
         for i, batch in enumerate(train_dataloader, 0):
             train_x1, train_x2, train_y = batch
             inv_model.zero_grad()
+            fwd_model.zero_grad()
             optimizer.zero_grad()
             # Train on first HOLDOUT points
             inv_model.train()
-            outputs = inv_model(train_x1.float(), train_x2.float())
-            loss = loss_function(outputs, train_y.float())
+            fwd_model.train()
+
+            outputs_1 = inv_model(train_x1.float(), train_x2.float())
+            outputs_2 = fwd_model(train_x1.float(), train_y.float())
+            loss_1 = loss_function(outputs_1, train_y.float())
+            loss_2 = loss_function(outputs_2, train_x2.float())
             
-            loss.backward()
+            #loss.backward()
+            torch.autograd.backward([loss_1, loss_2])
+
+            loss = loss_1 + loss_2
+
             # Training loss
             tloss = loss.item()
             optimizer.step()
             train_loss.append(tloss)
-            if (i % 10) == 0:
+            if (i % 20) == 0:
                 print("Epoch: ", e, "Iteration: ", i, " Training Loss: ", tloss)
         for i, batch in enumerate(val_dataloader, 0):
             # Validate on the rest
             inv_model.eval()
+            fwd_model.eval()
+
             val_x1, val_x2, val_y = batch
-            val_outputs = inv_model(val_x1.float(), val_x2.float())
-            vloss = loss_function(val_outputs, val_y.float()).item()
+            val_outputs_1 = inv_model(val_x1.float(), val_x2.float())
+            val_outputs_2 = fwd_model(val_x1.float(), val_y.float())
+
+            vloss_1 = loss_function(val_outputs_1, val_y.float()).item()
+            vloss_2 = loss_function(val_outputs_2, val_x2.float()).item()
+
+            vloss = vloss_1 + vloss_2
+
             val_loss.append(vloss)
-            if (i % 10) == 0:
+            if (i % 20) == 0:
                 print("Epoch: ", e, "Iteration: ", i, " Validation Loss: ", vloss)
 
     torch.save({'model_state_dict': inv_model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
-               }, 'inv_model_ckpt.pth')
+               }, 'inv_model_ckpt_cycle_3d.pth')
     return train_loss, val_loss
 
 if __name__ == "__main__":

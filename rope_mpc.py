@@ -12,7 +12,7 @@ Model Predictive Control:
       * Rollout a_t that minimizes d(s_{t+1}, s_{t+1}'), take one step in Blender
       * Repeat
 
-Usage: blender -P rope_mpc.py -- -N PRED_HORIZON -exp EXP_NUM
+Usage: blender -P rope_mpc.py -- -N PRED_HORIZON -exp EXP_NUM -render RENDER_BOOLEAN
 """
 
 import bpy
@@ -106,10 +106,11 @@ def mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, CEM=True):
     min_actions = None
 
     # CEM Sampling
-    def action_cem(num_elite, cost, max_iter, alpha=0.9, epsilon=1e-3, opt_mode="MAX_ITER"):
+    def action_cem(st, num_elite, cost, max_iter, alpha=0.9, epsilon=1e-3, opt_mode="MAX_ITER"):
         """
         Cross entropy method for action sampling in the optimization step.
         We model the distribution of action as a normal distribution
+        - ST: Current state
         - MU: Initial expectation of the actions in the format of [mu_x, mu_y, mu_z].
         - STD: Initial standard deviation of the actions in the format of [sigma_x, sigma_y, sigma_z]
         - NUM_ELITE: Number of elites actions that we are refitting to.
@@ -120,78 +121,140 @@ def mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, CEM=True):
         - OPT_MODE: If we are using Epsilon or Max_iter
         """
         it = 0
+        cost_queue = []
+        actions_queue = []
 
         # Max iteration stopping condition
         if opt_mode == "MAX_ITER":
-            while it < max_iter:
+            if residual < N:
+                steps = residual
+            else:
+                steps = N
+            # Save current state to restore
+            st_save = st
 
-                # Generate action candidates
-                if it == 0:
-                    actions_queue = [[np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
-                                    np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
-                                    np.random.uniform(-rope[-1].matrix_world.translation[2], 2)] for _ in range(1000)]
-                    mu_pre = np.array([0, 0, 0])
-                    std_pre = np.array([1, 1, 1])
-                else:
-                    actions_queue = [[mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()] for _ in range(100)]
+            for _ in range(100):
+                cost_val = 0
+                actions = []
+                # Restore st
+                st = st_save
 
-                # Evaluate the candidates by rolling each action out in sim
-                cost_to_go = [cost(0, eval_fwd(fwd_model, st, np.array(at), device).numpy()[0]) for at in actions_queue]
+                for t in range(steps):
+                    # Inside the while loop is CEM step.
+                    while it < max_iter:
+                        # Generate action candidates
+                        if it == 0:
+                            actions_candidates = [[np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
+                                            np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
+                                            np.random.uniform(-rope[-1].matrix_world.translation[2], 2)] for _ in range(1000)]
+                            mu_pre = np.array([0, 0, 0])
+                            std_pre = np.array([1, 1, 1])
+                        else:
+                            actions_candidates = [[mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()] for _ in range(1000)]
 
-                # Find elite actions according to the cost_to_go function
-                elite_idxs = np.array(cost_to_go).argsort()[:num_elite]
-                elite_actions = [actions_queue[idx] for idx in elite_idxs]
+                        # Evaluate the candidates by rolling each action out in sim
+                        cost_to_go = [cost(t, eval_fwd(fwd_model, st, np.array(at), device).numpy()[0]) for at in actions_candidates]
 
-                # Refit the distribution
-                mu = np.array(elite_actions).mean(axis=0)
-                std = np.array(elite_actions).std(axis=0)
+                        # Find elite actions according to the cost_to_go function
+                        elite_idxs = np.array(cost_to_go).argsort()[:num_elite]
+                        elite_actions = [actions_candidates[idx] for idx in elite_idxs]
 
-                # Polyak Averaging
-                mu = alpha * mu + (1 - alpha) * mu_pre
-                std = alpha * std + (1 - alpha) * std_pre
-                mu_pre = mu
-                std_pre = std
+                        # Refit the distribution
+                        mu = np.array(elite_actions).mean(axis=0)
+                        std = np.array(elite_actions).std(axis=0)
 
-                # Next optimization step
-                it += 1
-            return cost_to_go[elite_idxs[0]], np.array([mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()])
+                        # Polyak Averaging
+                        mu = alpha * mu + (1 - alpha) * mu_pre
+                        std = alpha * std + (1 - alpha) * std_pre
+                        mu_pre = mu
+                        std_pre = std
+
+                        # Next optimization step
+                        it += 1
+
+                    # Find current time step's minimal ctg
+                    min_ctg = cost_to_go[elite_idxs[0]]
+                    cost_val += min_ctg
+                    # Sample an elite action
+                    min_at = np.array([mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()])
+                    actions.append(min_at)
+                    st = eval_fwd(fwd_model, st, min_at, device).numpy()[0]
+
+                cost_queue.append(cost_val)
+                actions_queue.append(actions)
+            
+            # Return min ctg and action
+            min_cost = np.min(np.array(cost_queue))
+            min_actions_seq = np.array(actions_queue)[np.array(cost_queue).argmin(), :, :]
+            print(cost_queue)
+
+            return min_cost, min_actions_seq[0, :]
 
         # Std epsilon stopping condition
         elif opt_mode == "EPSILON":
-            # Initialize standard deviation for the very beginning
-            std = np.array([1, 1, 1])
-            while np.max(std) > epsilon:
+            if residual < N:
+                steps = residual
+            else:
+                steps = N
+            # Save current state to restore
+            st_save = st
 
-                # Generate action candidates
-                if it == 0:
-                    actions_queue = [[np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
-                                    np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
-                                    np.random.uniform(-rope[-1].matrix_world.translation[2], 2)] for _ in range(1000)]
-                    mu_pre = np.array([0, 0, 0])
-                    std_pre = np.array([1, 1, 1])
-                else:
-                    actions_queue = [[mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()] for _ in range(100)]
+            for _ in range(100):
+                cost_val = 0
+                actions = []
+                # Restore st
+                st = st_save
 
-                # Evaluate the candidates by rolling each action out in sim
-                cost_to_go = [cost(0, eval_fwd(fwd_model, st, np.array(at), device).numpy()[0]) for at in actions_queue]
+                for t in range(steps):
+                    # Inside the while loop is CEM step.
+                    std = np.array([1, 1, 1])
+                    while np.max(std) > epsilon:
+                        # Generate action candidates
+                        if it == 0:
+                            actions_candidates = [[np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
+                                            np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
+                                            np.random.uniform(-rope[-1].matrix_world.translation[2], 2)] for _ in range(1000)]
+                            mu_pre = np.array([0, 0, 0])
+                            std_pre = np.array([1, 1, 1])
+                        else:
+                            actions_candidates = [[mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()] for _ in range(1000)]
 
-                # Find elite actions according to the cost_to_go function
-                elite_idxs = np.array(cost_to_go).argsort()[:num_elite]
-                elite_actions = [actions_queue[idx] for idx in elite_idxs]
+                        # Evaluate the candidates by rolling each action out in sim
+                        cost_to_go = [cost(t, eval_fwd(fwd_model, st, np.array(at), device).numpy()[0]) for at in actions_candidates]
 
-                # Refit the distribution
-                mu = np.array(elite_actions).mean(axis=0)
-                std = np.array(elite_actions).std(axis=0)
+                        # Find elite actions according to the cost_to_go function
+                        elite_idxs = np.array(cost_to_go).argsort()[:num_elite]
+                        elite_actions = [actions_candidates[idx] for idx in elite_idxs]
 
-                # Polyak Averaging
-                mu = alpha * mu + (1 - alpha) * mu_pre
-                std = alpha * std + (1 - alpha) * std_pre
-                mu_pre = mu
-                std_pre = std
+                        # Refit the distribution
+                        mu = np.array(elite_actions).mean(axis=0)
+                        std = np.array(elite_actions).std(axis=0)
 
-                # Next optimization step
-                it += 1
-            return cost_to_go[elite_idxs[0]], np.array([mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()])
+                        # Polyak Averaging
+                        mu = alpha * mu + (1 - alpha) * mu_pre
+                        std = alpha * std + (1 - alpha) * std_pre
+                        mu_pre = mu
+                        std_pre = std
+
+                        # Next optimization step
+                        it += 1
+
+                    # Find current time step's minimal ctg
+                    min_ctg = cost_to_go[elite_idxs[0]]
+                    cost_val += min_ctg
+                    # Sample an elite action
+                    min_at = np.array([mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()])
+                    actions.append(min_at)
+                    st = eval_fwd(fwd_model, st, min_at, device).numpy()[0]
+
+                cost_queue.append(cost_val)
+                actions_queue.append(actions)
+            
+            # Return min ctg and action
+            min_cost = np.min(np.array(cost_queue))
+            min_actions_seq = actions_queue[np.array(cost_queue).argmin(), :, :]
+
+            return min_cost, min_actions_seq[0, :]
 
     if not CEM: 
         for i in range (10_000):
@@ -219,7 +282,8 @@ def mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, CEM=True):
                 min_actions = actions
         return min_cost, min_actions[0]
     else:
-        return action_cem(20, cost, 1000)
+        return action_cem(st, 200, cost, 100)
+         
 
 def dagger(st, at, stp1, s_dataset, a_dataset, sp1_dataset): 
     """
@@ -250,11 +314,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-N', '--pred_hrzn', dest='pred_hrzn', type=int)
     parser.add_argument('-exp', '--exp_num', dest='exp_num', type=int)
+    parser.add_argument('-render', '--render', dest='render', type=int)
+
     args = parser.parse_known_args(argv)[0]
     # Prediction horizon N
     N = args.pred_hrzn
     # Experiment number
     num = args.exp_num
+    # Render flag
+    render = args.render
 
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
@@ -322,7 +390,7 @@ if __name__ == "__main__":
             else:
                 stpN_prime = multistep_demo_states[t:t+N+1]
             # Use MPC based on trained fwd model to predict the action a_t
-            min_ctg, at_pred = mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device)
+            min_ctg, at_pred = mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, True)
             print("Timestep: ", t, " Ground truth action: ", multistep_demo_actions[t], " Predicted action: ", at_pred, " Min cost-to-go", min_ctg)
             
             # Take the predicted action which results in actual s_t+1, if PERTURB, need 100 frame to buffer
@@ -333,12 +401,12 @@ if __name__ == "__main__":
 
             for i in range(render_offset, render_offset + 100):
                 bpy.context.scene.frame_set(i)
-                if i == 50 and perturb:
+                if i == 50 and perturb and render:
                     save_render_path = os.path.join(os.getcwd(), 'inv_model_50k_multistep')
                     bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_perturb_exp_%d.jpg'%(num))
                     bpy.context.scene.camera.location = (0, 0, 60)
                     bpy.ops.render.render(write_still = True)
-                if i % 10 == 0:
+                if i % 10 == 0 and render:
                     save_render_path = os.path.join(os.getcwd(), 'inv_model_50k_multistep_mpc/video/pred')
                     bpy.context.scene.render.filepath = os.path.join(save_render_path, 'exppred_%d_frame_%03d.jpg'%(num, i))
                     bpy.context.scene.camera.location = (0, 0, 60)
@@ -352,12 +420,24 @@ if __name__ == "__main__":
             s_dataset, a_dataset, sp1_dataset = dagger(st, at_pred, stp1, s_dataset, a_dataset, sp1_dataset)
 
             render_offset += 100
-            save_render_path = os.path.join(os.getcwd(), 'inv_model_50k_multistep')
-            bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_exp_%d_%d.jpg'%(num, t))
-            bpy.context.scene.camera.location = (0, 0, 60)
-            bpy.ops.render.render(write_still = True)
+
+            if render:
+                save_render_path = os.path.join(os.getcwd(), 'inv_model_50k_multistep')
+                bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_exp_%d_%d.jpg'%(num, t))
+                bpy.context.scene.camera.location = (0, 0, 60)
+                bpy.ops.render.render(write_still = True)
 
     # Write the new datapoints to the dataset
     np.save(os.path.join(path, 's.npy'), s_dataset)
     np.save(os.path.join(path, 'a.npy'), a_dataset)
     np.save(os.path.join(path, 'sp1.npy'), sp1_dataset)
+
+    # Evaluate final MSE
+    # Evaluate terminal state error
+    gt_free_end = multistep_demo_states[-1, 0, :]
+    pred_free_end = np.array(rope[0].matrix_world.translation)[:2]
+    print("Ground truth rope free end location: ", gt_free_end)
+    print("Predicted rope free end location: ", pred_free_end)
+    # Calculate error
+    mse_diff = np.linalg.norm(gt_free_end - pred_free_end)**2
+    print("Terminal state free end MSE: %03f" %(mse_diff))

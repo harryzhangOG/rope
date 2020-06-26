@@ -187,6 +187,54 @@ def rig_rope(params):
     # rope = make_braid_rig(params, bezier)
     rope = make_cable_rig(params, bezier)
 
+def create_capsule(radius, length, segments=8, ring_count=4, name="capsule"):
+    mesh = bpy.data.meshes.new(name)  # add the new mesh
+    obj = bpy.data.objects.new(mesh.name, mesh)
+    col = bpy.data.collections.get("Collection") # TODO: make parameter or use current collection?
+    col.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj
+
+    verts = []
+    edges = []
+    faces = []
+
+    tz = length/2
+    for i in range(0, segments):
+        a = i * 2 * pi / segments
+        s = sin(a) * radius
+        c = cos(a) * radius
+        verts.append((s, c, tz))
+        verts.append((s, c,-tz))
+        j = (i+1)%segments
+        faces.append([i*2, j*2, j*2+1, i*2+1])
+
+    for k in range(1, ring_count):
+        b = k * pi / segments
+        tr = length/2 + sin(b) * radius
+        rr = cos(b) * radius
+        curr = segments*2 * k
+        prev = segments*2 * (k-1)
+        for i in range(0, segments):
+            a = i * 2 * pi / segments
+            sr = sin(a) * rr
+            cr = cos(a) * rr
+            verts.append((sr, cr, tr))
+            verts.append((sr, cr,-tr))
+            j = (i+1)%segments
+            faces.append([curr + i*2, curr + j*2, prev + j*2, prev + i*2])
+            faces.append([curr + i*2 + 1, prev + i*2 + 1, prev + j*2 + 1, curr + j*2 + 1])
+        
+    cap = len(verts)
+    verts.append((0, 0, tz+radius))
+    verts.append((0, 0,-tz-radius))
+    for i in range(0, segments):
+        j = (i+1)%segments
+        faces.append([curr + i*2, cap, curr + j*2])
+        faces.append([curr + i*2 + 1, curr + j*2 + 1, cap + 1])
+
+    mesh.from_pydata(verts, edges, faces)
+    return mesh
+
 def make_rope_v3(params):
     # This method relies on an STL file that contains a mesh for a
     # capsule.  The capsule cannot be non-unformly scaled without
@@ -201,11 +249,11 @@ def make_rope_v3(params):
     link_friction = params["segment_friction"]
 
     # Parameters for how much the rope resists twisting
-    twist_stiffness = 20
-    twist_damping = 10
+    twist_stiffness = 10
+    twist_damping = 5
 
     # Parameters for how much the rope resists bending
-    bend_stiffness = 0
+    bend_stiffness = 2
     bend_damping = 5
 
     num_joints = int(radius/separation)*2+1
@@ -214,11 +262,18 @@ def make_rope_v3(params):
     # Create the first link from the STL. In the filename: 12 = number
     # of radial subdivisions, 8 = number of length-wise subdivisions,
     # 1 = radius, 2 = height..
-    bpy.ops.import_mesh.stl(filepath="capsule_12_8_1_2.stl")
-    link0 = bpy.context.object
-    #link0.name = "link_0"
+    # bpy.ops.import_mesh.stl(filepath="capsule_12_8_1_2.stl")
+    # link0 = bpy.context.object
+    # #link0.name = "link_0"
+    # link0.name = "Cylinder"
+    # bpy.ops.transform.resize(value=(radius, radius, radius))
+    # bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)
+
+
+    link0 = create_capsule(0.01, 0.1)
     link0.name = "Cylinder"
-    bpy.ops.transform.resize(value=(radius, radius, radius))
+
+
     # The link has Z-axis up, and the origin is in its center.
     link0.rotation_euler = (0, pi/2, 0)
     link0.location = (loc0, 0, 0)

@@ -41,6 +41,7 @@ if "__main__" == __name__:
     a = []
 
     clear_scene()
+    add_camera_light()
 
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
@@ -56,6 +57,9 @@ if "__main__" == __name__:
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
     make_table(params)
+    for r in rope:
+        r.rigid_body.mass *= 10
+    rope[0].rigid_body.mass *= 5
     for seq_no in range(N):
         print('Experiment Number: ', seq_no)
         # remove all keyframes
@@ -67,13 +71,13 @@ if "__main__" == __name__:
         held_link.keyframe_insert(data_path="rotation_euler")
 
         # set up key frames
-        for action_no in range(20):
+        for action_no in range(5):
             keyf = 10
             settlef = 40
             # dz needs some special handling
-            dz = np.random.uniform(-held_link.location[2], 2)
+            dz = np.random.uniform(-held_link.location[2], 0.5)
             # Record the random action
-            at = np.array([np.random.uniform(0.2, 2) * random.choice((-1, 1)), np.random.uniform(0.2, 2) * random.choice((-1, 1)), dz])
+            at = np.array([np.random.uniform(0.2, 0.5) * random.choice((-1, 1)), np.random.uniform(0.2, 0.5) * random.choice((-1, 1)), dz])
             print("Action taken: ", at)
             a.append(at)
 
@@ -90,6 +94,10 @@ if "__main__" == __name__:
                     st_loc = r.matrix_world.to_translation()
                     st.append(np.array(st_loc))
                 s.append(st)
+                # Debugging : render the images
+                # bpy.context.scene.render.filepath = '/Users/harryzhang/Desktop/st_%d.jpg'%(frame_no)
+                # bpy.context.scene.camera.location = (0, 0, 60)
+                # bpy.ops.render.render(write_still = True)
             elif record_state and frame_no != 1 and frame_no != endf:
                 st = []
                 stp1 = []
@@ -99,15 +107,20 @@ if "__main__" == __name__:
                     stp1.append(np.array(st_loc))
                 s.append(st)
                 sp1.append(stp1)
+                # Debugging : render the images
+                # bpy.context.scene.render.filepath = '/Users/harryzhang/Desktop/st_%d.jpg'%(frame_no)
+                # bpy.context.scene.camera.location = (0, 0, 60)
+                # bpy.ops.render.render(write_still = True)
             elif frame_no == endf:
                 stp1 = []
                 for r in rope:
                     stp1_loc = r.matrix_world.to_translation()
                     stp1.append(np.array(stp1_loc))
                 sp1.append(stp1)
-            # for r in rope:
-                # stp1_loc = r.matrix_world.to_translation()
-            # print(f"{frame_no:3d} location: {rope[0].matrix_world.to_translation()}")
+                # Debugging : render the images
+                # bpy.context.scene.render.filepath = '/Users/harryzhang/Desktop/st_%d.jpg'%(frame_no)
+                # bpy.context.scene.camera.location = (0, 0, 60)
+                # bpy.ops.render.render(write_still = True)
     # Save the npy files
     if not os.path.exists("./states_actions"):
         os.makedirs('./states_actions')

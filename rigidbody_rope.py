@@ -198,7 +198,10 @@ def create_capsule(radius, length, segments=8, ring_count=4, name="capsule"):
     edges = []
     faces = []
 
-    tz = length/2
+    tz = length/2 - radius
+    if tz <= 0:
+        raise ValueError("length must be greater than radius*2")
+    
     for i in range(0, segments):
         a = i * 2 * pi / segments
         s = sin(a) * radius
@@ -210,7 +213,7 @@ def create_capsule(radius, length, segments=8, ring_count=4, name="capsule"):
 
     for k in range(1, ring_count):
         b = k * pi / segments
-        tr = length/2 + sin(b) * radius
+        tr = length/2 - radius + sin(b) * radius
         rr = cos(b) * radius
         curr = segments*2 * k
         prev = segments*2 * (k-1)
@@ -233,7 +236,7 @@ def create_capsule(radius, length, segments=8, ring_count=4, name="capsule"):
         faces.append([curr + i*2 + 1, curr + j*2 + 1, cap + 1])
 
     mesh.from_pydata(verts, edges, faces)
-    return mesh
+    return obj
 
 def make_rope_v3(params):
     # This method relies on an STL file that contains a mesh for a
@@ -241,20 +244,21 @@ def make_rope_v3(params):
     # distorting the end caps.  So instead we compute the rope_length
     # based on the param's radius and num_segments, and compute the
     # number of segments composed of the capsules that we need
-    radius = params["segment_radius"]
-    rope_length = radius * params["num_segments"] * 2 * 0.9 # HACKY -- shortening the rope artificially by 10% for now
-    num_segments = int(rope_length / radius)
-    separation = radius*1.1 # HACKY - artificially increase the separation to avoid link-to-link collision
+    radius = params["segment_radius"]*10
+    link_length = radius * 5 # must be >= radius*4 since they overlap on the sphere
+    rope_length = link_length * params["num_segments"] * 2 * 0.9 # HACKY -- shortening the rope artificially by 10% for now
+    num_segments = int(rope_length / link_length)
+    separation = link_length - radius*2 # have each link overlap on the spherical part
     link_mass = params["segment_mass"] # TODO: this may need to be scaled
-    link_friction = params["segment_friction"]
+    link_friction = params["segment_friction"] * 50
 
     # Parameters for how much the rope resists twisting
-    twist_stiffness = 10
-    twist_damping = 5
+    twist_stiffness = 30
+    twist_damping = 1
 
     # Parameters for how much the rope resists bending
-    bend_stiffness = 2
-    bend_damping = 5
+    bend_stiffness = 100
+    bend_damping = 1
 
     num_joints = int(radius/separation)*2+1
     loc0 = rope_length/2
@@ -270,7 +274,7 @@ def make_rope_v3(params):
     # bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)
 
 
-    link0 = create_capsule(0.01, 0.1)
+    link0 = create_capsule(radius=radius, length=link_length, ring_count=3*10, segments=6*10)
     link0.name = "Cylinder"
 
 
@@ -303,6 +307,7 @@ def make_rope_v3(params):
         joint.name = 'cc_' + str(i-1) + ':' + str(i)
         rbc = joint.rigid_body_constraint
         # connect the two links
+        rbc.disable_collisions = True
         rbc.object1 = links[i-1]
         rbc.object2 = links[i]
         # disable translation from the joint.  Note: we can consider
@@ -329,16 +334,17 @@ def make_rope_v3(params):
             rbc.spring_damping_ang_y = bend_damping
             rbc.spring_damping_ang_z = bend_damping
 
-    # After creating the rope, we connect every link to the link 1
-    # separated by a joint that has no constraints.  This prevents
-    # collision detection between the pairs of rope points.
-    for i in range(2, num_segments):
-        bpy.ops.object.empty_add(type='PLAIN_AXES', radius=radius*1.5, location=(loc0 - (i-1)*separation, 0, 0))
-        bpy.ops.rigidbody.constraint_add(type='GENERIC_SPRING')
-        joint = bpy.context.object
-        joint.name = 'cc_' + str(i-2) + ':' + str(i)
-        joint.rigid_body_constraint.object1 = links[i-2]
-        joint.rigid_body_constraint.object2 = links[i]
+    if False:
+        # After creating the rope, we connect every link to the link 1
+        # separated by a joint that has no constraints.  This prevents
+        # collision detection between the pairs of rope points.
+        for i in range(2, num_segments):
+            bpy.ops.object.empty_add(type='PLAIN_AXES', radius=radius*1.5, location=(loc0 - (i-1)*separation, 0, 0))
+            bpy.ops.rigidbody.constraint_add(type='GENERIC_SPRING')
+            joint = bpy.context.object
+            joint.name = 'cc_' + str(i-2) + ':' + str(i)
+            joint.rigid_body_constraint.object1 = links[i-2]
+            joint.rigid_body_constraint.object2 = links[i]
 
     # the following parmaeters seem sufficient and fast for using this
     # rope.  steps_per_second can probably be lowered more to gain a

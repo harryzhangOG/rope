@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     for r in rope:
         r.rigid_body.mass *= 10
-    rope[0].rigid_body.mass *= 5
+    r.rigid_body.mass *= 5
 
     frame_offset = 0
 

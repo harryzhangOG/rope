@@ -37,19 +37,26 @@ from fwd_model import *
 import torch
 import argparse
 
-def take_action(obj, frame, action_vec, animate=True):
-    # Keyframes a displacement for obj given by action_vec at given frame
-    curr_frame = bpy.context.scene.frame_current
-    dx,dy,dz = action_vec
-    if animate != obj.rigid_body.kinematic:
-        # We are "picking up" a dropped object, so we need its updated location
-        obj.location = obj.matrix_world.translation
-        obj.rotation_euler = obj.matrix_world.to_euler()
-        obj.keyframe_insert(data_path="location", frame=curr_frame)
-        obj.keyframe_insert(data_path="rotation_euler", frame=curr_frame)
-    toggle_animation(obj, curr_frame, animate)
-    obj.location += Vector((dx,dy,dz))
-    obj.keyframe_insert(data_path="location", frame=frame)
+def take_action(held_link, at, keyf, settlef):
+    bpy.context.scene.frame_set(bpy.context.scene.frame_current + keyf)
+    held_link.location += Vector((at[0], at[1], at[2]))
+    held_link.keyframe_insert(data_path="location")
+    bpy.context.scene.frame_set(bpy.context.scene.frame_current + settlef)
+    held_link.keyframe_insert(data_path="location")
+
+# def take_action(obj, frame, action_vec, animate=True):
+#     # Keyframes a displacement for obj given by action_vec at given frame
+#     curr_frame = bpy.context.scene.frame_current
+#     dx,dy,dz = action_vec
+#     if animate != obj.rigid_body.kinematic:
+#         # We are "picking up" a dropped object, so we need its updated location
+#         obj.location = obj.matrix_world.translation
+#         obj.rotation_euler = obj.matrix_world.to_euler()
+#         obj.keyframe_insert(data_path="location", frame=curr_frame)
+#         obj.keyframe_insert(data_path="rotation_euler", frame=curr_frame)
+#     toggle_animation(obj, curr_frame, animate)
+#     obj.location += Vector((dx,dy,dz))
+#     obj.keyframe_insert(data_path="location", frame=frame)
 
 def toggle_animation(obj, frame, animate):
     # Sets the obj to be animable or non-animable at particular frame
@@ -83,7 +90,7 @@ def eval_fwd(fwd_model, st, at, device):
     # Cast to Torch tensors
     with torch.no_grad():
         st = torch.from_numpy(st).to(device)
-        st = torch.reshape(st, (-1, 100))
+        st = torch.reshape(st, (-1, 270))
         at = torch.from_numpy(at).to(device)
         at = torch.reshape(at, (-1, 3))
         output_stp1 = fwd_model(st.float(), at.float())
@@ -96,7 +103,8 @@ def mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, CEM=True):
     """
 
     # Define cost function as the squared L2 diff between gt stpN_prime and predicted stpN
-    cost = lambda t, stpN: np.linalg.norm(stpN[:2] - stpN_prime[t, 0, :])**2
+    cost = lambda t, stpN: np.linalg.norm(stpN - stpN_prime[t, :, :].reshape((-1, 100)))**2
+    # cost = lambda t, stpN: np.linalg.norm(stpN[:2] - stpN_prime[t, 0, :])**2
 
     # Allocate cost values map
     c_val = {}
@@ -147,17 +155,23 @@ def mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, CEM=True):
                             actions_candidates = [[np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
                                             np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
                                             np.random.uniform(-rope[-1].matrix_world.translation[2], 2)] for _ in range(1000)]
-                            mu_pre = np.array([0, 0, 0])
-                            std_pre = np.array([1, 1, 1])
+
+                            mu_pre = np.array(actions_candidates).mean(axis=0)
+                            std_pre = np.array(actions_candidates).std(axis=0)
                         else:
-                            actions_candidates = [[mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()] for _ in range(1000)]
+                            actions_candidates = [[mu[0] + std[0]*np.random.randn(), mu[1] + std[1]*np.random.randn(), mu[2] + std[2]*np.random.randn()] for _ in range(100)]
 
                         # Evaluate the candidates by rolling each action out in sim
                         cost_to_go = [cost(t, eval_fwd(fwd_model, st, np.array(at), device).numpy()[0]) for at in actions_candidates]
 
                         # Find elite actions according to the cost_to_go function
-                        elite_idxs = np.array(cost_to_go).argsort()[:num_elite]
-                        elite_actions = [actions_candidates[idx] for idx in elite_idxs]
+                        if it == 0:
+                            elite_idxs = np.array(cost_to_go).argsort()[:200]
+                            elite_actions = [actions_candidates[idx] for idx in elite_idxs]
+                        else:
+                            elite_idxs = np.array(cost_to_go).argsort()[:num_elite]
+                            elite_actions = [actions_candidates[idx] for idx in elite_idxs]
+
 
                         # Refit the distribution
                         mu = np.array(elite_actions).mean(axis=0)
@@ -213,7 +227,7 @@ def mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, CEM=True):
                         if it == 0:
                             actions_candidates = [[np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
                                             np.random.uniform(0.2, 2) * random.choice((-1, 1)), 
-                                            np.random.uniform(-rope[-1].matrix_world.translation[2], 2)] for _ in range(1000)]
+                                            np.random.uniform(-rope[-1].matrix_world.translation[2], 1)] for _ in range(1000)]
                             mu_pre = np.array([0, 0, 0])
                             std_pre = np.array([1, 1, 1])
                         else:
@@ -282,7 +296,7 @@ def mpc(rope, fwd_model, st, stpN_prime, T, N, residual, device, CEM=True):
                 min_actions = actions
         return min_cost, min_actions[0]
     else:
-        return action_cem(st, 200, cost, 100)
+        return action_cem(st, 20, cost, 20)
          
 
 def dagger(st, at, stp1, s_dataset, a_dataset, sp1_dataset): 
@@ -293,9 +307,9 @@ def dagger(st, at, stp1, s_dataset, a_dataset, sp1_dataset):
     """
 
     # Aggregate the new datapoints
-    st = st.reshape((-1, 50, 2))
+    st = st.reshape((-1, 90, 3))
     s_dataset = np.vstack((s_dataset, st))
-    stp1 = stp1.reshape((-1, 50, 2))
+    stp1 = stp1.reshape((-1, 90, 3))
     sp1_dataset = np.vstack((sp1_dataset, stp1))
     a_dataset = np.vstack((a_dataset, at))
 
@@ -303,11 +317,21 @@ def dagger(st, at, stp1, s_dataset, a_dataset, sp1_dataset):
 
 
 if __name__ == "__main__":
+    with open("rigidbody_params.json", "r") as f:
+        params = json.load(f)
+
+    clear_scene()
+    rope = make_rope_v3(params)
+    make_table(params)
+    bpy.context.scene.gravity *= 10
+    add_camera_light()
 
     # Checkpoint path
-    ckpt = 'fwd_model_ckpt_3d.pth'
+    ckpt = 'fwd_model_ckpt_3d_spring.pth'
     # Load forward model aka system model
     device, fwd_model = load_fwd(ckpt)
+    # If we want to aggregate the dataset
+    dagger_ind = False
 
     if '--' in sys.argv:
         argv = sys.argv[sys.argv.index('--') + 1:]
@@ -323,25 +347,23 @@ if __name__ == "__main__":
     num = args.exp_num
     # Render flag
     render = args.render
-
-    with open("rigidbody_params.json", "r") as f:
-        params = json.load(f)
-    clear_scene()
-    rope = make_capsule_rope(params)
-    rope[0].rigid_body.mass *= 5
-    rope[-1].rigid_body.mass *= 2
-    rig_rope(params)
-    add_camera_light()
-    frame_end = 3000
+    
+    held_link = rope[-1]
+    held_link.rigid_body.kinematic = True
+    
+    frame_end = 250 * 30
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
-    make_table(params)
 
+    for r in rope:
+        r.rigid_body.mass *= 10
+    rope[0].rigid_body.mass *= 5
+    
     # Load in series of ground truth demo states and actions
     # The states' length should be the length of an episode, T
     # Therefore, the actions' length should be the T - 1
-    multistep_demo_states = np.load(os.path.join(os.getcwd(), 'states_actions/multistep_demo_states.npy'))
-    multistep_demo_actions = np.load(os.path.join(os.getcwd(), 'states_actions/multistep_demo_actions.npy'))
+    multistep_demo_states = np.load(os.path.join(os.getcwd(), 'states_actions/test/multistep_demo_states_%d.npy'%(num)))
+    multistep_demo_actions = np.load(os.path.join(os.getcwd(), 'states_actions/test/multistep_demo_actions_%d.npy'%(num)))
 
     # Horizon
     T = len(multistep_demo_states)
@@ -372,16 +394,25 @@ if __name__ == "__main__":
 
     # Load datasets
     path = os.path.join(os.getcwd(), "states_actions")
-    s_dataset = np.load(os.path.join(path, 's.npy'))
-    a_dataset = np.load(os.path.join(path, 'a.npy'))
-    sp1_dataset = np.load(os.path.join(path, 'sp1.npy'))
+    s_dataset = np.load(os.path.join(path, 's_spring.npy'))
+    a_dataset = np.load(os.path.join(path, 'a_spring.npy'))
+    sp1_dataset = np.load(os.path.join(path, 'sp1_spring.npy'))
 
     # Iteratively predict the action
     with torch.no_grad():
-        for t in range(len(multistep_demo_actions)):
+        bpy.context.scene.frame_set(1)
+        for ac in bpy.data.actions:
+            bpy.data.actions.remove(ac)
+
+        held_link.keyframe_insert(data_path="location")
+        held_link.keyframe_insert(data_path="rotation_euler")
+        bpy.context.scene.rigidbody_world.enabled = True
+        bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
+
+        for t in range(T):
             st = []
             for r in rope:
-                st.append(r.matrix_world.translation[:2])
+                st.append(r.matrix_world.translation)
             st = np.array(st)
 
             residual = T - t
@@ -395,42 +426,43 @@ if __name__ == "__main__":
             
             # Take the predicted action which results in actual s_t+1, if PERTURB, need 100 frame to buffer
             if perturb: 
-                take_action(rope[-1], render_offset + 110, (at_pred[0], at_pred[1], at_pred[2]))
+                take_action(rope[-1], (at_pred[0], at_pred[1], at_pred[2]), 110, 40)
             else:
-                take_action(rope[-1], render_offset + 10, (at_pred[0], at_pred[1], at_pred[2]))
+                take_action(rope[-1], (at_pred[0], at_pred[1], at_pred[2]), 10, 40)
 
-            for i in range(render_offset, render_offset + 100):
+            for i in range(render_offset + 1, render_offset + 51):
                 bpy.context.scene.frame_set(i)
                 if i == 50 and perturb and render:
-                    save_render_path = os.path.join(os.getcwd(), 'inv_model_50k_multistep')
+                    save_render_path = os.path.join(os.getcwd(), 'fwd_model_6k_spring')
                     bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_perturb_exp_%d.jpg'%(num))
                     bpy.context.scene.camera.location = (0, 0, 60)
                     bpy.ops.render.render(write_still = True)
                 if i % 10 == 0 and render:
-                    save_render_path = os.path.join(os.getcwd(), 'inv_model_50k_multistep_mpc/video/pred')
+                    save_render_path = os.path.join(os.getcwd(), 'fwd_model_6k_spring/video/pred')
                     bpy.context.scene.render.filepath = os.path.join(save_render_path, 'exppred_%d_frame_%03d.jpg'%(num, i))
                     bpy.context.scene.camera.location = (0, 0, 60)
                     bpy.ops.render.render(write_still = True)
             stp1 = []
             for r in rope:
-                stp1.append(r.matrix_world.translation[:2])
+                stp1.append(r.matrix_world.translation)
             stp1 = np.array(stp1)
 
             # Aggregate the dataset every time step.
-            s_dataset, a_dataset, sp1_dataset = dagger(st, at_pred, stp1, s_dataset, a_dataset, sp1_dataset)
+            if dagger_ind:
+                s_dataset, a_dataset, sp1_dataset = dagger(st, at_pred, stp1, s_dataset, a_dataset, sp1_dataset)
 
-            render_offset += 100
+            render_offset += 50
 
             if render:
-                save_render_path = os.path.join(os.getcwd(), 'inv_model_50k_multistep')
+                save_render_path = os.path.join(os.getcwd(), 'fwd_model_6k_mpc')
                 bpy.context.scene.render.filepath = os.path.join(save_render_path, 'pred_exp_%d_%d.jpg'%(num, t))
                 bpy.context.scene.camera.location = (0, 0, 60)
                 bpy.ops.render.render(write_still = True)
 
     # Write the new datapoints to the dataset
-    np.save(os.path.join(path, 's.npy'), s_dataset)
-    np.save(os.path.join(path, 'a.npy'), a_dataset)
-    np.save(os.path.join(path, 'sp1.npy'), sp1_dataset)
+    np.save(os.path.join(path, 's_spring.npy'), s_dataset)
+    np.save(os.path.join(path, 'a_spring.npy'), a_dataset)
+    np.save(os.path.join(path, 'sp1_spring.npy'), sp1_dataset)
 
     # Evaluate final MSE
     # Evaluate terminal state error

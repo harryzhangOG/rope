@@ -253,12 +253,12 @@ def make_rope_v3(params):
     link_friction = params["segment_friction"] * 50
 
     # Parameters for how much the rope resists twisting
-    twist_stiffness = 30
-    twist_damping = 1
+    twist_stiffness = 1
+    twist_damping = 0.9
 
     # Parameters for how much the rope resists bending
-    bend_stiffness = 100
-    bend_damping = 1
+    bend_stiffness = 40
+    bend_damping = 0.5
 
     num_joints = int(radius/separation)*2+1
     loc0 = rope_length/2

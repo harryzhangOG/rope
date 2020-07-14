@@ -349,8 +349,8 @@ def make_rope_v3(params):
     # the following parmaeters seem sufficient and fast for using this
     # rope.  steps_per_second can probably be lowered more to gain a
     # little speed.
-    bpy.context.scene.rigidbody_world.steps_per_second = 1000
-    bpy.context.scene.rigidbody_world.solver_iterations = 100
+    bpy.context.scene.rigidbody_world.steps_per_second = 500 #1000
+    bpy.context.scene.rigidbody_world.solver_iterations = 50 #100
 
     return links
 

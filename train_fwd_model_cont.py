@@ -1,4 +1,4 @@
-from fwd_model import *
+from fwd_model_cont import *
 import torch
 import matplotlib.pyplot as plt
 import torch.nn as nn

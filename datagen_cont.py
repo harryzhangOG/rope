@@ -88,7 +88,7 @@ if "__main__" == __name__:
         endf = bpy.context.scene.frame_current
         for frame_no in range(1, endf+1):
             bpy.context.scene.frame_set(frame_no)
-            record_state = (frame_no % 50 == 1)
+            record_state = (frame_no % 6 == 1)
             if record_state and frame_no == 1:
                 st = []
                 for r in rope:

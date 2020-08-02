@@ -89,24 +89,33 @@ if "__main__" == __name__:
         for frame_no in range(1, endf+1):
             bpy.context.scene.frame_set(frame_no)
             record_state = (frame_no % 6 == 1)
+            if frame_no % 6 == 0:
+                st_settle = []
+                for r in rope:
+                    st_settle.append(np.array(r.matrix_world.to_translation()))
+                st_settle = np.array(st_settle)
             if record_state and frame_no == 1:
                 st = []
-                for r in rope:
+                for i, r in enumerate(rope, 0):
                     st_loc = r.matrix_world.to_translation()
-                    st_vel = [0, 0, 0]
-                    st.append(np.concatenate([np.array(st_loc), np.array(st_vel)]))
+                    st.append(np.concatenate([np.array(st_loc), np.array([0, 0, 0])]))
                 s.append(st)
                 # Debugging : render the images
                 # bpy.context.scene.render.filepath = '/Users/harryzhang/Desktop/st_%d.jpg'%(frame_no)
                 # bpy.context.scene.camera.location = (0, 0, 60)
                 # bpy.ops.render.render(write_still = True)
             elif record_state and frame_no != 1 and frame_no != endf:
+                if frame_no == endf - 1:
+                    st_settle = []
+                    for r in rope:
+                        st_settle.append(np.array(r.matrix_world.to_translation()))
+                    st_settle = np.array(st_settle)
                 st = []
                 stp1 = []
                 for i, r in enumerate(rope, 0):
                     st_loc = r.matrix_world.to_translation()
                     # Calculate velocity
-                    st_vel = (np.array(st_loc) - s[-1][i][:3])/5
+                    st_vel = (np.array(st_loc) - st_settle[i, :]) / 1
                     st.append(np.concatenate([np.array(st_loc), st_vel]))
                     stp1.append(np.concatenate([np.array(st_loc), st_vel]))
                 s.append(st)
@@ -120,7 +129,7 @@ if "__main__" == __name__:
                 for i, r in enumerate(rope, 0):
                     stp1_loc = r.matrix_world.to_translation()
                     # Calculate velocity
-                    stp1_vel = (np.array(stp1_loc) - sp1[-1][i][:3])/5 
+                    stp1_vel = (np.array(stp1_loc) - st_settle[i, :]) / 1
                     stp1.append(np.concatenate([np.array(stp1_loc), np.array(stp1_vel)]))
                 sp1.append(stp1)
                 # Debugging : render the images

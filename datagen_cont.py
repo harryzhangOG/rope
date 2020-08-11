@@ -54,6 +54,11 @@ if "__main__" == __name__:
 
     held_link = rope[-1]
     held_link.rigid_body.kinematic = True
+
+    # If we want to fix the free end
+    fix_free_end = True
+    rope[0].rigid_body.kinematic = fix_free_end
+
     init_loc = Vector(held_link.location)
 
     for r in rope:
@@ -78,7 +83,10 @@ if "__main__" == __name__:
             # dz needs some special handling
             dz = np.random.uniform(-held_link.location[2], 1)
             # Record the random action
-            at = np.array([np.random.uniform(0.1, 1.25) * random.choice((-1, 1)), np.random.uniform(0.1, 1.25) * random.choice((-1, 1)), dz])
+            if action_no < 10:
+                at = np.array([np.random.uniform(0.1, 1.25), np.random.uniform(0.1, 1.25) * random.choice((-1, 1)), dz])
+            elif action_no >= 10:
+                at = np.array([np.random.uniform(0.1, 1.25) * random.choice((-1, 1)), np.random.uniform(0.1, 1.25) * random.choice((-1, 1)), dz])
             print("Action taken: ", at)
             a.append(at)
 

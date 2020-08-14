@@ -54,14 +54,19 @@ def success_ac(rope, obstacle_y, obstacle_radius):
     min_y = inf
     min_z = inf
     suc = 0
+    left = 0
+    left_bound = obstacle_y + obstacle_radius
     right_bound = obstacle_y
     for r in rope:
         if r.matrix_world.translation[1] <= min_y:
             min_y = r.matrix_world.translation[1]
             if r.matrix_world.translation[1] < right_bound:
                 suc += 1
+            if r.matrix_world.translation[1] > left_bound:
+                left += 1
     print(suc)
-    return suc >= 10 and right_bound >= min_y
+    print(left)
+    return suc >= 10 and right_bound >= min_y and left <=20
 
 
 if "__main__" == __name__:
@@ -118,7 +123,7 @@ if "__main__" == __name__:
         obstacle_height = np.random.uniform(0.5, 4)
         obstacle_radius = np.random.uniform(0.2, 2)
         print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-        obstacle_loc = (4.75+np.random.uniform(0.5, 3)*random.choice((-1, 1)), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
+        obstacle_loc = (4.75+np.random.uniform(0.5, 6)*random.choice((-1, 1)), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
         print("Obstacle loc: ", obstacle_loc)
         bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc)
         bpy.ops.rigidbody.object_add()

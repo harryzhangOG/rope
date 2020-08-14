@@ -160,8 +160,10 @@ if "__main__" == __name__:
         apred_origin = [2, target_end[1]-held_link.matrix_world.translation[1], target_end[2]+2-held_link.matrix_world.translation[2]]
         origin_x, origin_y, origin_z = apred_origin[0], apred_origin[1], apred_origin[2]
         apred = apred_origin.copy()
+        counter = 0
 
         while not success:
+            counter += 1
             bpy.context.scene.frame_set(31)
             take_action(held_link, apred, 5, 0)
             # Fix the end point
@@ -182,6 +184,8 @@ if "__main__" == __name__:
                 bpy.context.scene.frame_set(41)
                 held_link.keyframe_delete(data_path='location')
             print("Success: ", success)
+            if counter > 10 and not success:
+                break
 
         a.append(apred)
         s.append([obstacle_x, obstacle_y, obstacle_height, obstacle_radius])

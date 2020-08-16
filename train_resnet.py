@@ -105,7 +105,7 @@ def train():
             vloss = cost(val_outputs, val_y.float()).item()
             valLoss.append(vloss)
             if i % 40 == 0:
-                print('[Epoch %d, Iteration %d] Validation Loss: %.5f' % (epoch+1, i, tloss))
+                print('[Epoch %d, Iteration %d] Validation Loss: %.5f' % (epoch+1, i, vloss))
             
         lr_scheduler.step()
         for param_group in optimizer.param_groups:

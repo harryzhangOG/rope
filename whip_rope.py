@@ -50,23 +50,32 @@ def random_perturb(pert1, pert2):
     toggle_animation(p2_link, 6, False)
 
 
-def success_ac(rope, obstacle_y, obstacle_radius):
+def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius):
     min_y = inf
     min_z = inf
     suc = 0
-    left = 0
+    z_suc = 0
+    num = 0
     left_bound = obstacle_y + obstacle_radius
-    right_bound = obstacle_y
+    right_bound = obstacle_y - obstacle_radius
+    up_bound = obstacle_x + obstacle_radius
+    bottom_bound = obstacle_x - obstacle_radius
     for r in rope:
-        if r.matrix_world.translation[1] <= min_y:
-            min_y = r.matrix_world.translation[1]
-            if r.matrix_world.translation[1] < right_bound:
+        # if r.matrix_world.translation[1] <= min_y:
+        #     min_y = r.matrix_world.translation[1]
+        #     if r.matrix_world.translation[1] < right_bound:
+        #         suc += 1
+        #     if r.matrix_world.translation[1] > left_bound:
+        #         left += 1
+        if r.matrix_world.translation[0] <= up_bound and r.matrix_world.translation[0] >= bottom_bound:
+            if r.matrix_world.translation[1] <= right_bound:
                 suc += 1
-            if r.matrix_world.translation[1] > left_bound:
-                left += 1
+                if r.matrix_world.translation[2] <= obstacle_z:
+                    z_suc += 1
+        if r.matrix_world.translation[1] <= right_bound:
+            num += 1
     print(suc)
-    print(left)
-    return suc >= 10 and right_bound >= min_y and left <=20
+    return suc > 1 and z_suc > 1 and num > 10
 
 
 if "__main__" == __name__:
@@ -123,7 +132,7 @@ if "__main__" == __name__:
         obstacle_height = np.random.uniform(0.5, 4)
         obstacle_radius = np.random.uniform(0.2, 2)
         print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-        obstacle_loc = (4.75+np.random.uniform(0.5, 6)*random.choice((-1, 1)), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
+        obstacle_loc = (np.random.uniform(0, 18), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
         print("Obstacle loc: ", obstacle_loc)
         bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc)
         bpy.ops.rigidbody.object_add()
@@ -147,9 +156,13 @@ if "__main__" == __name__:
         bpy.context.scene.rigidbody_world.enabled = True
         bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
         # Randomly perturb
-        at = np.array([np.random.uniform(2, 15), np.random.uniform(2, 5) * random.choice((-1, 1)), np.random.uniform(0.1, 1)])
+        at = np.array([np.random.uniform(max(0.5, obstacle_x - held_link.matrix_world.translation[0] - 3), min(10, obstacle_x - held_link.matrix_world.translation[0])), 
+                       np.random.uniform(obstacle_y + obstacle_radius + 0.5 - held_link.matrix_world.translation[1], 5), 
+                       np.random.uniform(0.1, 1)])
+
         print(at)
         take_action(held_link, at, 10, 20)
+        start_x = held_link.matrix_world.translation[0]
 
         # The actual parameterized action. We use loc=(-0.225, -1.75, 1.75) as the origin of the action, 
         # which we know works for the obstacle (4.75, -2, 0), with radius=0.5 and height=2
@@ -157,7 +170,7 @@ if "__main__" == __name__:
         # apred_origin = [obstacle_x-3-held_link.matrix_world.translation[0], 
         #         obstacle_y+obstacle_radius-held_link.matrix_world.translation[1], 
         #         obstacle_height/2+obstacle_z+2-held_link.matrix_world.translation[2]]
-        apred_origin = [2, target_end[1]-held_link.matrix_world.translation[1], target_end[2]+2-held_link.matrix_world.translation[2]]
+        apred_origin = [0, target_end[1]-held_link.matrix_world.translation[1], target_end[2]+2-held_link.matrix_world.translation[2]]
         origin_x, origin_y, origin_z = apred_origin[0], apred_origin[1], apred_origin[2]
         apred = apred_origin.copy()
         counter = 0
@@ -165,23 +178,23 @@ if "__main__" == __name__:
         while not success:
             counter += 1
             bpy.context.scene.frame_set(31)
-            take_action(held_link, apred, 5, 0)
+            take_action(held_link, apred, 7, 0)
             # Fix the end point
-            at = [target_end[0] - held_link.matrix_world.translation[0], target_end[1] - held_link.matrix_world.translation[1], target_end[2] - held_link.matrix_world.translation[2]]
-            take_action(held_link, at, 5, 0)
-            for i in range(1, 101):
+            at = [start_x - held_link.matrix_world.translation[0], target_end[1] - held_link.matrix_world.translation[1], target_end[2] - held_link.matrix_world.translation[2]]
+            take_action(held_link, at, 7, 0)
+            for i in range(1, 121):
                 bpy.context.scene.frame_set(i)
                 if render:
                     save_render_path = os.path.join(os.getcwd(), 'whip')
                     bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_%d_frame_%03d.jpg'%(seq_no, i))
                     bpy.context.scene.camera.location = (5, 0, 60)
                     bpy.ops.render.render(write_still = True)
-            success = success_ac(rope, obstacle_y, obstacle_radius)
+            success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
             if not success:
-                apred = [origin_x+np.random.uniform(0.5, 1)*random.choice((-1, 1)), origin_y+np.random.uniform(0.5, 1), origin_z+np.random.uniform(0.2, 2)]
-                bpy.context.scene.frame_set(36)
+                apred = [origin_x, origin_y+np.random.uniform(0.5, 3), origin_z+np.random.uniform(0.5, 2)]
+                bpy.context.scene.frame_set(38)
                 held_link.keyframe_delete(data_path='location')
-                bpy.context.scene.frame_set(41)
+                bpy.context.scene.frame_set(45)
                 held_link.keyframe_delete(data_path='location')
             print("Success: ", success)
             if counter > 10 and not success:

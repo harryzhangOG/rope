@@ -86,11 +86,13 @@ if "__main__" == __name__:
     parser = argparse.ArgumentParser()
     parser.add_argument('-num', '--num_iterations', dest='num_iterations', type=int)
     parser.add_argument('-render', '--render', dest='render', type=int)
+    parser.add_argument('-image', '--image', dest='image', type=int)
 
     args = parser.parse_known_args(argv)[0]
     # Number of episodes
     N = args.num_iterations
     render = args.render
+    image = args.image
 
     clear_scene()
     add_camera_light()
@@ -141,7 +143,7 @@ if "__main__" == __name__:
         cylinder = bpy.context.object
         cylinder.rigid_body.type = 'PASSIVE'
         cylinder.rigid_body.friction = 0.7
-        if render:
+        if image:
             mat = bpy.data.materials.new(name="red")
             mat.diffuse_color = (1, 0, 0, 0)    
             cylinder.data.materials.append(mat)
@@ -185,11 +187,28 @@ if "__main__" == __name__:
             for i in range(1, 121):
                 bpy.context.scene.frame_set(i)
                 if render:
+                    # Get the scene
+                    scene = bpy.context.scene
                     save_render_path = os.path.join(os.getcwd(), 'whip')
                     bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_%d_frame_%03d.jpg'%(seq_no, i))
                     bpy.context.scene.camera.location = (5, 0, 60)
                     bpy.ops.render.render(write_still = True)
             success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
+            # Record Images
+            bpy.context.scene.frame_set(31)
+            if image:
+                if not os.path.exists("./whip_policy_sa/images"):
+                    os.makedirs('./whip_policy_sa/images')
+                # Get the scene
+                scene = bpy.context.scene
+                # Set render resolution
+                scene.render.resolution_x = 256
+                scene.render.resolution_y = 256
+                scene.render.resolution_percentage = 100
+                save_render_path = os.path.join(os.getcwd(), 'whip_policy_sa/images')
+                bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_state_%05d.jpg'%(seq_no))
+                bpy.context.scene.camera.location = (5, 0, 60)
+                bpy.ops.render.render(write_still = True)
             if not success:
                 apred = [origin_x, origin_y+np.random.uniform(0.5, 3), origin_z+np.random.uniform(0.5, 2)]
                 bpy.context.scene.frame_set(38)

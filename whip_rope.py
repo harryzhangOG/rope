@@ -15,6 +15,9 @@ sys.path.append(os.getcwd())
 from blender_rope import *
 from rigidbody_rope import *
 import argparse
+sys.path.append('/usr/local/lib/python3.6/dist-packages')
+from pyvirtualdisplay import Display
+Display().start()
 
 def take_action(held_link, at, keyf, settlef):
     bpy.context.scene.frame_set(bpy.context.scene.frame_current + keyf)

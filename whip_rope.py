@@ -196,19 +196,6 @@ if "__main__" == __name__:
             success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
             # Record Images
             bpy.context.scene.frame_set(31)
-            if image:
-                if not os.path.exists("./whip_policy_sa/images"):
-                    os.makedirs('./whip_policy_sa/images')
-                # Get the scene
-                scene = bpy.context.scene
-                # Set render resolution
-                scene.render.resolution_x = 256
-                scene.render.resolution_y = 256
-                scene.render.resolution_percentage = 100
-                save_render_path = os.path.join(os.getcwd(), 'whip_policy_sa/images')
-                bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_state_%05d.jpg'%(seq_no))
-                bpy.context.scene.camera.location = (5, 0, 60)
-                bpy.ops.render.render(write_still = True)
             if not success:
                 apred = [origin_x, origin_y+np.random.uniform(0.5, 3), origin_z+np.random.uniform(0.5, 2)]
                 bpy.context.scene.frame_set(38)
@@ -220,7 +207,19 @@ if "__main__" == __name__:
                 break
 
         a.append(apred)
-        s.append([obstacle_x, obstacle_y, obstacle_height, obstacle_radius])
+        if image:
+            if not os.path.exists("./whip_policy_sa/images"):
+                os.makedirs('./whip_policy_sa/images')
+            # Get the scene
+            scene = bpy.context.scene
+            # Set render resolution
+            scene.render.resolution_x = 256
+            scene.render.resolution_y = 256
+            scene.render.resolution_percentage = 100
+            save_render_path = os.path.join(os.getcwd(), 'whip_policy_sa/images')
+            bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_state_%05d.jpg'%(seq_no))
+            bpy.context.scene.camera.location = (5, 0, 60)
+            bpy.ops.render.render(write_still = True)
         
         if N > 1:
             # Delete the obstacle
@@ -228,5 +227,4 @@ if "__main__" == __name__:
 
     if not os.path.exists("./whip_policy_sa"):
         os.makedirs('./whip_policy_sa')
-    np.save(os.path.join(os.getcwd(), 'whip_policy_sa/s.npy'), np.array(s))
     np.save(os.path.join(os.getcwd(), 'whip_policy_sa/a.npy'), np.array(a))

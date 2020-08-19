@@ -67,11 +67,11 @@ def train():
 
     trainLoss = []
     valLoss = []
-    EPOCHS = 2
+    EPOCHS = 200
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'whip_policy_sa'))
-    holdout = 5
+    holdout = 1800
 
     train_dataset = TrainDataset(path, transform, holdout, device)
     val_dataset = ValDataset(path, transform, holdout, device)
@@ -83,6 +83,8 @@ def train():
         for i, batch in enumerate(train_dataloader, 0):
             net50.train()
             train_x, train_y = batch
+            train_x = train_x.to(device)
+            train_y = train_y.to(device)
             net50.zero_grad()
             optimizer.zero_grad()
 
@@ -95,16 +97,18 @@ def train():
             optimizer.step()
 
             trainLoss.append(tloss)
-            if i % 40 == 0:
+            if i % 10 == 0:
                 print('[Epoch %d, Iteration %d] Training Loss: %.5f' % (epoch+1, i, tloss))
         for i, batch in enumerate(val_dataloader, 0):
             net50.eval()
 
             val_x, val_y = batch
+            val_x = val_x.to(device)
+            val_y = val_y.to(device)
             val_outputs = net50(val_x)
             vloss = cost(val_outputs, val_y.float()).item()
             valLoss.append(vloss)
-            if i % 40 == 0:
+            if i % 10 == 0:
                 print('[Epoch %d, Iteration %d] Validation Loss: %.5f' % (epoch+1, i, vloss))
             
         lr_scheduler.step()

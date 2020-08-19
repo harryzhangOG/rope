@@ -15,6 +15,7 @@ sys.path.append(os.getcwd())
 from blender_rope import *
 from rigidbody_rope import *
 import argparse
+<<<<<<< HEAD
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
@@ -34,6 +35,11 @@ def load_resnet50(model_path):
     checkpoint = torch.load(model_path, map_location=device)
     resnet50.load_state_dict(checkpoint['model_state_dict'])
     return resnet50, device
+=======
+sys.path.append('/usr/local/lib/python3.6/dist-packages')
+from pyvirtualdisplay import Display
+Display().start()
+>>>>>>> ca433ecf2259f4a537306b6de0eab798cb5157b9
 
 def take_action(held_link, at, keyf, settlef):
     bpy.context.scene.frame_set(bpy.context.scene.frame_current + keyf)

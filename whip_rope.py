@@ -151,7 +151,8 @@ if "__main__" == __name__:
             obstacle_height = np.random.uniform(0.5, 4)
             obstacle_radius = np.random.uniform(0.2, 2)
             print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-            obstacle_loc = (np.random.uniform(0, 18), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
+            # obstacle_loc = (np.random.uniform(0, 18), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
+            obstacle_loc = (np.random.uniform(13, 20), -2-np.random.uniform(0.5, 3), -1+obstacle_height/2)
             print("Obstacle loc: ", obstacle_loc)
             bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc)
             bpy.ops.rigidbody.object_add()
@@ -168,7 +169,7 @@ if "__main__" == __name__:
             obstacle_x, obstacle_y, obstacle_z = cylinder.matrix_world.translation
             # target_end = (obstacle_x-1, obstacle_y-obstacle_radius-2, obstacle_z+obstacle_height/2)
             # Reduced action reach
-            target_end = (obstacle_x-1, obstacle_y-obstacle_radius-1, obstacle_z+obstacle_height/2)
+            target_end = (0, obstacle_y-obstacle_radius-2, obstacle_z+obstacle_height/2+1)
 
             held_link.keyframe_insert(data_path="location")
             held_link.keyframe_insert(data_path="rotation_euler")
@@ -176,11 +177,10 @@ if "__main__" == __name__:
             bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
             # Randomly perturb
             at = np.array([np.random.uniform(max(0.5, obstacle_x - held_link.matrix_world.translation[0] - 3), min(10, obstacle_x - held_link.matrix_world.translation[0])), 
-                        np.random.uniform(obstacle_y + obstacle_radius + 0.5 - held_link.matrix_world.translation[1], 5), 
+                        np.random.uniform(obstacle_y + obstacle_radius + 0.5 - held_link.matrix_world.translation[1], 2), 
                         np.random.uniform(0.1, 1)])
 
-            print(at)
-            take_action(held_link, at, 10, 20)
+            take_action(held_link, at, 10, 40)
             start_x = held_link.matrix_world.translation[0]
 
             # The actual parameterized action. We use loc=(-0.225, -1.75, 1.75) as the origin of the action, 
@@ -189,18 +189,19 @@ if "__main__" == __name__:
             # apred_origin = [obstacle_x-3-held_link.matrix_world.translation[0], 
             #         obstacle_y+obstacle_radius-held_link.matrix_world.translation[1], 
             #         obstacle_height/2+obstacle_z+2-held_link.matrix_world.translation[2]]
-            apred_origin = [0, target_end[1]-held_link.matrix_world.translation[1], target_end[2]+2-held_link.matrix_world.translation[2]]
+            apred_origin = [0, max(-5, target_end[1]-held_link.matrix_world.translation[1]), min(2.5, target_end[2]+2-held_link.matrix_world.translation[2])]
             origin_x, origin_y, origin_z = apred_origin[0], apred_origin[1], apred_origin[2]
             apred = apred_origin.copy()
             counter = 0
 
             while not success:
+                print(apred)
                 counter += 1
-                bpy.context.scene.frame_set(31)
-                take_action(held_link, apred, 7, 0)
+                bpy.context.scene.frame_set(51)
+                take_action(held_link, apred, 9, 0)
                 # Fix the end point
                 at = [start_x - held_link.matrix_world.translation[0], target_end[1] - held_link.matrix_world.translation[1], target_end[2] - held_link.matrix_world.translation[2]]
-                take_action(held_link, at, 7, 0)
+                take_action(held_link, at, 9, 0)
                 for i in range(1, 121):
                     bpy.context.scene.frame_set(i)
                     if render:
@@ -212,15 +213,16 @@ if "__main__" == __name__:
                         bpy.ops.render.render(write_still = True)
                 success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
                 # Record Images
-                bpy.context.scene.frame_set(31)
+                bpy.context.scene.frame_set(51)
                 if not success:
-                    apred = [origin_x, origin_y+np.random.uniform(0.5, 3), origin_z+np.random.uniform(0.5, 2)]
-                    bpy.context.scene.frame_set(38)
+                    apred = [origin_x, origin_y+np.random.uniform(0.8, 3), origin_z+np.random.uniform(-1, 1)]
+                    bpy.context.scene.frame_set(60)
                     held_link.keyframe_delete(data_path='location')
-                    bpy.context.scene.frame_set(45)
+                    bpy.context.scene.frame_set(69)
                     held_link.keyframe_delete(data_path='location')
                 print("Success: ", success)
                 if counter > 10 and not success:
+                    bpy.context.scene.frame_set(51)
                     break
 
             a.append(apred)
@@ -267,7 +269,7 @@ if "__main__" == __name__:
         if image:
             cylinder.data.materials.append(mat)
         obstacle_x, obstacle_y, obstacle_z = cylinder.matrix_world.translation
-        target_end = (obstacle_x-1, obstacle_y-obstacle_radius-1, obstacle_z+obstacle_height/2)
+        target_end = (obstacle_x-1, obstacle_y-obstacle_radius-2, obstacle_z+obstacle_height/2+1)
 
         held_link.keyframe_insert(data_path="location")
         held_link.keyframe_insert(data_path="rotation_euler")
@@ -275,11 +277,11 @@ if "__main__" == __name__:
         bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
         # Randomly perturb
         at = np.array([np.random.uniform(max(0.5, obstacle_x - held_link.matrix_world.translation[0] - 3), min(10, obstacle_x - held_link.matrix_world.translation[0])), 
-                    np.random.uniform(obstacle_y + obstacle_radius + 0.5 - held_link.matrix_world.translation[1], 5), 
+                    np.random.uniform(obstacle_y + obstacle_radius + 0.5 - held_link.matrix_world.translation[1], 2), 
                     np.random.uniform(0.1, 1)])
 
         print(at)
-        take_action(held_link, at, 10, 20)
+        take_action(held_link, at, 10, 40)
         start_x = held_link.matrix_world.translation[0]        
         for i in range(1, 32):
             bpy.context.scene.frame_set(i)
@@ -312,11 +314,11 @@ if "__main__" == __name__:
 
         while not success:
             counter += 1
-            bpy.context.scene.frame_set(31)
-            take_action(held_link, apred, 7, 0)
+            bpy.context.scene.frame_set(51)
+            take_action(held_link, apred, 9, 0)
             # Fix the end point
             at = [start_x - held_link.matrix_world.translation[0], target_end[1] - held_link.matrix_world.translation[1], target_end[2] - held_link.matrix_world.translation[2]]
-            take_action(held_link, at, 7, 0)
+            take_action(held_link, at, 9, 0)
             for i in range(1, 121):
                 bpy.context.scene.frame_set(i)
                 if render and i >= 31:
@@ -331,12 +333,12 @@ if "__main__" == __name__:
                     bpy.ops.render.render(write_still = True)
             success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
             # Record Images
-            bpy.context.scene.frame_set(31)
+            bpy.context.scene.frame_set(51)
             if not success:
                 apred = [origin_x, origin_y+np.random.uniform(0.5, 3), origin_z+np.random.uniform(0.5, 2)]
-                bpy.context.scene.frame_set(38)
+                bpy.context.scene.frame_set(60)
                 held_link.keyframe_delete(data_path='location')
-                bpy.context.scene.frame_set(45)
+                bpy.context.scene.frame_set(69)
                 held_link.keyframe_delete(data_path='location')
             print("Success: ", success)
             if counter > 10 and not success:

@@ -19,6 +19,10 @@ import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
+from pyvirtualdisplay import Display
+# start a fake display
+Display().start()
+
 
 def load_resnet50(model_path):
     if torch.cuda.is_available():

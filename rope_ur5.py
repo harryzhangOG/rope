@@ -276,6 +276,8 @@ if "__main__" == __name__:
     ur5.base.location[0] = 5
     ur5.base.location[2] = 2
     bpy.context.view_layer.objects.active = ur5.base
+    bpy.context.object.rotation_mode = 'XYZ'
+    ur5.base.rotation_euler = Euler((0, 0, pi), 'XYZ')
     bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)
     bpy.context.view_layer.update()
 
@@ -293,6 +295,8 @@ if "__main__" == __name__:
         traj = traj_new
 
     kf = 51
+    ur5.set_config(start_config)
+    ur5.keyframe_insert(1)
     bpy.context.scene.frame_set(1)
 
     # 2a. A keyframe motion of held link to put in gripper (start kf = 1, end kf = 50)
@@ -304,6 +308,7 @@ if "__main__" == __name__:
     at = target_loc - held_link.matrix_world.translation
     print(at)
     take_action(held_link, at, keyf, 50-keyf)
+    ur5.keyframe_insert(keyf)
     # # 2b. Set keyframe to ur5
     ur5.keyframe_insert(51)
     for i in range(1, 52):

@@ -59,6 +59,8 @@ def train():
     net50 = models.resnet50(pretrained=False)
     num_ftrs = net50.fc.in_features
     net50.fc = nn.Sequential(nn.Dropout(0.55), nn.Linear(num_ftrs, 3))
+    state_dict = torch.load('resnet50_model_old.pth')['model_state_dict']
+    net50.load_state_dict(state_dict)
     net50.to(device)
 
     cost = nn.MSELoss()
@@ -71,7 +73,7 @@ def train():
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'whip_policy_sa'))
-    holdout = 1800
+    holdout = 800
 
     train_dataset = TrainDataset(path, transform, holdout, device)
     val_dataset = ValDataset(path, transform, holdout, device)

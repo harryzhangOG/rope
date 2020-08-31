@@ -19,6 +19,7 @@ import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
+sys.path.append('/usr/local/lib/python3.6/dist-packages')
 from pyvirtualdisplay import Display
 # start a fake display
 Display().start()

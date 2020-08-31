@@ -260,7 +260,7 @@ if "__main__" == __name__:
         obstacle_height = np.random.uniform(0.5, 4)
         obstacle_radius = np.random.uniform(0.2, 2)
         print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-        obstacle_loc = (np.random.uniform(0, 18), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
+        obstacle_loc = (np.random.uniform(13, 20), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
         print("Obstacle loc: ", obstacle_loc)
         bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc)
         bpy.ops.rigidbody.object_add()

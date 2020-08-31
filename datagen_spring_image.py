@@ -96,7 +96,6 @@ if "__main__" == __name__:
             if record_state and frame_no == 1:
                 if not os.path.exists("./mpc_policy_sa/images"):
                     os.makedirs('./mpc_policy_sa/images/s')
-                    os.makedirs('./mpc_policy_sa/images/sp1')
                 # Get the scene
                 scene = bpy.context.scene
                 # Set render resolution
@@ -118,18 +117,13 @@ if "__main__" == __name__:
                 bpy.context.scene.render.filepath = os.path.join(save_render_path, 'mpc_state_%04d_%05d.jpg'%(seq_no, frame_no))
                 bpy.context.scene.camera.location = (5, 0, 60)
                 bpy.ops.render.render(write_still = True)
-
-                save_render_path = os.path.join(os.getcwd(), 'mpc_policy_sa/images/sp1')
-                bpy.context.scene.render.filepath = os.path.join(save_render_path, 'mpc_state_%04d_%05d.jpg'%(seq_no, frame_no))
-                bpy.context.scene.camera.location = (5, 0, 60)
-                bpy.ops.render.render(write_still = True)
             elif frame_no == endf:
                 scene = bpy.context.scene
                 # Set render resolution
                 scene.render.resolution_x = 256
                 scene.render.resolution_y = 256
                 scene.render.resolution_percentage = 100
-                save_render_path = os.path.join(os.getcwd(), 'mpc_policy_sa/images/sp1')
+                save_render_path = os.path.join(os.getcwd(), 'mpc_policy_sa/images/s')
                 bpy.context.scene.render.filepath = os.path.join(save_render_path, 'mpc_state_%04d_%05d.jpg'%(seq_no, frame_no))
                 bpy.context.scene.camera.location = (5, 0, 60)
                 bpy.ops.render.render(write_still = True)

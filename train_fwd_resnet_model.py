@@ -31,10 +31,10 @@ class TrainDataset(Dataset):
     def __init__(self, main_dir, transform, holdout, device):
         self.main_dir = main_dir
         self.img_dir_s = os.path.join(main_dir, 'images/s')
-        self.img_dir_sp1 = os.path.join(main_dir, 'images/sp1')
+        self.img_dir_sp1 = os.path.join(main_dir, 'images/s')
         self.transform = transform
-        all_imgs_s = os.listdir(self.img_dir_s)
-        all_imgs_sp1 = os.listdir(self.img_dir_sp1)
+        all_imgs_s = os.listdir(self.img_dir_s)[:-1]
+        all_imgs_sp1 = os.listdir(self.img_dir_sp1)[1:]
         self.total_imgs_s = natsort.natsorted(all_imgs_s)[:holdout]
         self.total_imgs_sp1 = natsort.natsorted(all_imgs_sp1)[:holdout]
         self.total_labels = torch.from_numpy(np.load(os.path.join(self.main_dir, 'a_spring.npy'))[:holdout]).to(device)
@@ -55,10 +55,10 @@ class ValDataset(Dataset):
     def __init__(self, main_dir, transform, holdout, device):
         self.main_dir = main_dir
         self.img_dir_s = os.path.join(main_dir, 'images/s')
-        self.img_dir_sp1 = os.path.join(main_dir, 'images/sp1')
+        self.img_dir_sp1 = os.path.join(main_dir, 'images/s')
         self.transform = transform
-        all_imgs_s = os.listdir(self.img_dir_s)
-        all_imgs_sp1 = os.listdir(self.img_dir_sp1)
+        all_imgs_s = os.listdir(self.img_dir_s)[:-1]
+        all_imgs_sp1 = os.listdir(self.img_dir_sp1)[1:]
         self.total_imgs_s = natsort.natsorted(all_imgs_s)[holdout:]
         self.total_imgs_sp1 = natsort.natsorted(all_imgs_sp1)[holdout:]
         self.total_labels = torch.from_numpy(np.load(os.path.join(self.main_dir, 'a_spring.npy'))[holdout:]).to(device)
@@ -92,7 +92,7 @@ def train():
 
     trainLoss = []
     valLoss = []
-    EPOCHS = 200
+    EPOCHS = 2000
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'mpc_policy_sa'))

@@ -16,13 +16,43 @@ import future
 class Encoder_ResNet(nn.Module):
     def __init__(self, latent_dim=4):
         super(Encoder_ResNet, self).__init__()
-        self.encoder_net = models.resnet34(pretrained=False)
+        self.encoder_net = models.resnet18(pretrained=False)
         num_ftrs = self.encoder_net.fc.in_features
         self.encoder_net.fc = nn.Sequential(nn.Dropout(0.55), nn.Linear(num_ftrs, latent_dim))
 
     def forward(self, x):
         latent = self.encoder_net(x)
         return latent
+
+class Encoder(nn.Module):
+    def __init__(self, latent_dim=4, channel_dim=3):
+        super(Encoder, self).__init__()
+        self.z_dim = latent_dim
+        self.model = nn.Sequential(
+                nn.Conv2d(channel_dim, 64, 3, 1, 1),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(64, 64, 4, 2, 1),
+                nn.LeakyReLU(0.2, inplace=True),
+                # 64 x 32 x 32
+                nn.Conv2d(64, 64, 3, 1, 1),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(64, 128, 4, 2, 1),
+                nn.LeakyReLU(0.2, inplace=True),
+                # 128 x 16 x 16
+                nn.Conv2d(128, 256, 4, 2, 1),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(256, 256, 4, 2, 1),
+                nn.LeakyReLU(0.2, inplace=True),
+                # 256 x 16 x 16
+        )
+        self.out = nn.Linear(256*16*16, self.z_dim)
+
+    def forward(self, x):
+        x = self.model(x)
+        x = x.view(x.shape[0], -1)
+        x = self.out(x)
+        return x
+
 
 class Transition_Model(nn.Module):
     def __init__(self, latent_dim=4):
@@ -79,9 +109,9 @@ class ValDataset(Dataset):
             if f[-8:-4] == '1001':
                 all_imgs_s.remove(f)
         all_imgs_sp1 = os.listdir(self.img_dir_sp1)
-        for f in all_imgs_s:
+        for f in all_imgs_sp1:
             if f[-8:-4] == '0001':
-                all_imgs_s.remove(f)
+                all_imgs_sp1.remove(f)
         self.total_imgs_s = natsort.natsorted(all_imgs_s)[holdout:]
         self.total_imgs_sp1 = natsort.natsorted(all_imgs_sp1)[holdout:]
         self.total_labels = torch.from_numpy(np.load(os.path.join(self.main_dir, 'a_spring.npy'))[holdout:]).to(device)
@@ -129,11 +159,12 @@ def train():
 
     # ResNet 50 based fwd model
     encoder = Encoder_ResNet()
+    #encoder = Encoder()
     transition = Transition_Model()
     encoder.to(device)
     transition.to(device)
 
-    optimizer = torch.optim.Adam(list(encoder.parameters())+list(transition.parameters()), lr=5e-3, weight_decay=1e-3)
+    optimizer = torch.optim.Adam(list(encoder.parameters())+list(transition.parameters()), lr=1e-3, weight_decay=1e-3)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.8)
 
     trainLoss = []

@@ -16,9 +16,9 @@ import future
 class Encoder_ResNet(nn.Module):
     def __init__(self, latent_dim=4):
         super(Encoder_ResNet, self).__init__()
-        self.encoder_net = models.resnet18(pretrained=False)
+        self.encoder_net = models.resnet18(pretrained=True)
         num_ftrs = self.encoder_net.fc.in_features
-        self.encoder_net.fc = nn.Sequential(nn.Dropout(0.55), nn.Linear(num_ftrs, latent_dim))
+        self.encoder_net.fc = nn.Sequential(nn.Dropout(0.5), nn.Linear(num_ftrs, latent_dim))
 
     def forward(self, x):
         latent = self.encoder_net(x)
@@ -29,20 +29,19 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.z_dim = latent_dim
         self.model = nn.Sequential(
-                nn.Conv2d(channel_dim, 64, 3, 1, 1),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Conv2d(64, 64, 4, 2, 1),
-                nn.LeakyReLU(0.2, inplace=True),
-                # 64 x 32 x 32
-                nn.Conv2d(64, 64, 3, 1, 1),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Conv2d(64, 128, 4, 2, 1),
-                nn.LeakyReLU(0.2, inplace=True),
-                # 128 x 16 x 16
+                nn.Conv2d(channel_dim, 128, 3, 1, 1),
+                nn.LeakyReLU(0.3, inplace=True),
                 nn.Conv2d(128, 256, 4, 2, 1),
-                nn.LeakyReLU(0.2, inplace=True),
+                nn.LeakyReLU(0.3, inplace=True),
+                nn.Conv2d(256, 256, 3, 1, 1),
+                nn.LeakyReLU(0.3, inplace=True),
+                nn.Conv2d(256, 512, 4, 2, 1),
+                nn.LeakyReLU(0.3, inplace=True),
+                # 128 x 16 x 16
+                nn.Conv2d(512, 256, 4, 2, 1),
+                nn.LeakyReLU(0.3, inplace=True),
                 nn.Conv2d(256, 256, 4, 2, 1),
-                nn.LeakyReLU(0.2, inplace=True),
+                nn.LeakyReLU(0.3, inplace=True),
                 # 256 x 16 x 16
         )
         self.out = nn.Linear(256*16*16, self.z_dim)
@@ -74,6 +73,7 @@ class TrainDataset(Dataset):
         self.img_dir_s = os.path.join(main_dir, 'images/s')
         self.img_dir_sp1 = os.path.join(main_dir, 'images/s')
         self.transform = transform
+        self.device = device
         all_imgs_s = os.listdir(self.img_dir_s)
         for f in all_imgs_s:
             if f[-8:-4] == '1001':
@@ -84,7 +84,9 @@ class TrainDataset(Dataset):
                 all_imgs_sp1.remove(f)
         self.total_imgs_s = natsort.natsorted(all_imgs_s)[:holdout]
         self.total_imgs_sp1 = natsort.natsorted(all_imgs_sp1)[:holdout]
-        self.total_labels = torch.from_numpy(np.load(os.path.join(self.main_dir, 'a_spring.npy'))[:holdout]).to(device)
+        self.mean = np.array([0.5, 0.5, 0])
+        self.std = np.array([0.5, 0.5, 1])
+        self.total_labels = np.load(os.path.join(self.main_dir, 'a_spring.npy'))[:holdout]
 
     def __len__(self):
         return len(self.total_imgs_s)
@@ -94,9 +96,11 @@ class TrainDataset(Dataset):
         img_loc_sp1 = os.path.join(self.img_dir_sp1, self.total_imgs_sp1[idx])
         image_s = Image.open(img_loc_s).convert("RGB")
         image_sp1 = Image.open(img_loc_sp1).convert("RGB")
+        image_s = np.array(image_s).astype('float32')/255
+        image_sp1 = np.array(image_sp1).astype('float32')/255
         tensor_image_s = self.transform(image_s)
         tensor_image_sp1 = self.transform(image_sp1)
-        return tensor_image_s, tensor_image_sp1, self.total_labels[idx]
+        return tensor_image_s, tensor_image_sp1, torch.from_numpy((self.total_labels[idx] - self.mean) / self.std).to(self.device)
 
 class ValDataset(Dataset):
     def __init__(self, main_dir, transform, holdout, device):
@@ -104,6 +108,7 @@ class ValDataset(Dataset):
         self.img_dir_s = os.path.join(main_dir, 'images/s')
         self.img_dir_sp1 = os.path.join(main_dir, 'images/s')
         self.transform = transform
+        self.device = device
         all_imgs_s = os.listdir(self.img_dir_s)
         for f in all_imgs_s:
             if f[-8:-4] == '1001':
@@ -114,19 +119,23 @@ class ValDataset(Dataset):
                 all_imgs_sp1.remove(f)
         self.total_imgs_s = natsort.natsorted(all_imgs_s)[holdout:]
         self.total_imgs_sp1 = natsort.natsorted(all_imgs_sp1)[holdout:]
-        self.total_labels = torch.from_numpy(np.load(os.path.join(self.main_dir, 'a_spring.npy'))[holdout:]).to(device)
+        self.mean = np.array([0.5, 0.5, 0])
+        self.std = np.array([0.5, 0.5, 1])
+        self.total_labels = np.load(os.path.join(self.main_dir, 'a_spring.npy'))[holdout:]
 
     def __len__(self):
-        return len(self.total_imgs_s)
+        return len(self.total_imgs_sp1)
 
     def __getitem__(self, idx):
         img_loc_s = os.path.join(self.img_dir_s, self.total_imgs_s[idx])
         img_loc_sp1 = os.path.join(self.img_dir_sp1, self.total_imgs_sp1[idx])
         image_s = Image.open(img_loc_s).convert("RGB")
         image_sp1 = Image.open(img_loc_sp1).convert("RGB")
+        image_s = np.array(image_s).astype('float32')/255
+        image_sp1 = np.array(image_sp1).astype('float32')/255
         tensor_image_s = self.transform(image_s)
         tensor_image_sp1 = self.transform(image_sp1)
-        return tensor_image_s, tensor_image_sp1, self.total_labels[idx]
+        return tensor_image_s, tensor_image_sp1, torch.from_numpy((self.total_labels[idx] - self.mean) / self.std).to(self.device)
 
 def compute_cpc_loss(obs, obs_pos, encoder, trans, actions, device):
     bs = obs.shape[0]
@@ -163,8 +172,9 @@ def train():
     transition = Transition_Model()
     encoder.to(device)
     transition.to(device)
+    parameters = list(encoder.parameters())+list(transition.parameters())
 
-    optimizer = torch.optim.Adam(list(encoder.parameters())+list(transition.parameters()), lr=1e-3, weight_decay=1e-3)
+    optimizer = torch.optim.Adam(parameters, lr=5e-3, weight_decay=2e-3)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.8)
 
     trainLoss = []
@@ -179,7 +189,7 @@ def train():
     val_dataset = ValDataset(path, transform, holdout, device)
 
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=False)
+    val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=False, drop_last=True)
 
     for epoch in range(EPOCHS):
         for i, batch in enumerate(train_dataloader, 0):
@@ -193,6 +203,7 @@ def train():
 
             loss = compute_cpc_loss(train_o, train_op1, encoder, transition, train_a, device)
             loss.backward()
+            nn.utils.clip_grad_norm_(parameters, 20)
 
             # Training loss
             tloss = loss.item()

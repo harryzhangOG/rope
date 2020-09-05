@@ -169,17 +169,17 @@ def train():
 
     trainLoss = []
     valLoss = []
-    EPOCHS = 1000
+    EPOCHS = 2
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'mpc_policy_sa'))
-    holdout = 2500
+    holdout = 10
 
     train_dataset = TrainDataset(path, transform, holdout, device)
     val_dataset = ValDataset(path, transform, holdout, device)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=2, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=2, shuffle=False)
 
     for epoch in range(EPOCHS):
         for i, batch in enumerate(train_dataloader, 0):

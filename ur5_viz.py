@@ -54,6 +54,7 @@ class Gripper:
         self.right_outer_finger  = load_mesh("right_outer_finger",  meshBase + "outer_finger.dae", 0.001)
         self.right_inner_finger  = load_mesh("right_inner_finger",  meshBase + "inner_finger.dae", 0.001)
         self.right_inner_finger_pad = load_mesh("right_inner_finger_pad", meshBase + "pad.dae", 0.001)
+        # bpy.ops.rigidbody.objects_add()
 
         add_child(self.gripper_base, self.left_outer_knuckle)
         add_child(self.gripper_base, self.left_inner_knuckle)
@@ -130,6 +131,10 @@ class UR5:
     def keyframe_insert(self, frame):
         for link in self.links:
             link.keyframe_insert(data_path='rotation_axis_angle', frame=frame)
+
+    def keyframe_delete(self, frame):
+        for link in self.links:
+            link.keyframe_delete(data_path='rotation_axis_angle', frame=frame)
 
 def load_traj(fileName):
     with open(fileName) as fp:

@@ -1,8 +1,7 @@
 import os
 import sys
 sys.path.append(os.getcwd())
-sys.path.append(os.path.join(os.getcwd(), 'venv-dyn_rope/lib/python3.7/site-packages'))
-
+sys.path.append('/Users/harryzhang/Library/Python/3.7/lib/python/site-packages')
 from cvxopt import spmatrix, matrix, solvers, printing
 import numpy as np
 import math

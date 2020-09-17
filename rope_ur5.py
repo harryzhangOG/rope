@@ -251,6 +251,19 @@ if "__main__" == __name__:
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
 
+    obstacle_height = np.random.uniform(0.5, 4)
+    obstacle_radius = np.random.uniform(0.2, 2)
+    print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
+    obstacle_loc = (np.random.uniform(13, 20), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
+    print("Obstacle loc: ", obstacle_loc)
+    bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc)
+    bpy.ops.rigidbody.object_add()
+    bpy.ops.transform.resize(value=(1,1,obstacle_height/2))
+
+    cylinder = bpy.context.object
+    cylinder.rigid_body.type = 'PASSIVE'
+    cylinder.rigid_body.friction = 0.7
+
     held_link = rope[-1]
     held_link.rigid_body.kinematic = True
 
@@ -268,6 +281,10 @@ if "__main__" == __name__:
 
     keyf = np.random.randint(10, 20)
 
+    bpy.ops.mesh.primitive_cube_add(location=(23, 0, 0))
+    bpy.ops.rigidbody.object_add(type="PASSIVE")
+    bpy.ops.transform.resize(value=(0.5,10,5))
+
     ur5 = UR5()
     # 1. Scale the UR5 base and move it
     ur5.base.scale[0] = 4
@@ -281,9 +298,9 @@ if "__main__" == __name__:
     bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)
     bpy.context.view_layer.update()
 
-    start_config = [-pi/4., 0., pi/6., -pi/4, pi/4., 0.]
-    end_config   = [ pi/4., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.]
-    duration = 1.2 # seconds
+    start_config = [pi/4., 0., pi/6., -pi/4, pi/4., 0.]
+    end_config   = [-pi/4., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.]
+    duration = 2 # seconds
     fps = 24
     H = ceil(fps*duration)
     traj = generate_whip_motion(start_config, end_config, H, 1./fps)
@@ -309,7 +326,7 @@ if "__main__" == __name__:
     print(at)
     take_action(held_link, at, keyf, 50-keyf)
     ur5.keyframe_insert(keyf)
-    # # 2b. Set keyframe to ur5
+    # 2b. Set keyframe to ur5
     ur5.keyframe_insert(51)
     for i in range(1, 52):
         bpy.context.scene.frame_set(i)

@@ -53,17 +53,19 @@ class ValDataset(Dataset):
 class DistModel(nn.Module):
     def __init__(self, device, ac_dim):
         import itertools
+        super(DistModel, self).__init__()
         self.resnet_mean = models.resnet18(pretrained=False)
         num_ftrs = self.resnet_mean.fc.in_features
         self.resnet_mean.fc = nn.Sequential(nn.Dropout(0.55), nn.Linear(num_ftrs, ac_dim))
-        self.resnet_mean.to(device)
 
         self.logstd = nn.Parameter(torch.zeros(ac_dim, dtype=torch.float32, device=device))
         self.logstd.to(device)
-        self.optimizer = torch.optim.SGD(itertools.chain([self.logstd], self.resnet_mean.parameters()), 
-                                         lr=1e-3, weight_decay=1e-4, momentum=0.9)
+        #self.optimizer = torch.optim.SGD(itertools.chain([self.logstd], self.resnet_mean.parameters()), 
+        #                                 lr=1e-3, weight_decay=1e-4, momentum=0.9)
+        self.optimizer = torch.optim.Adam(itertools.chain([self.logstd], self.resnet_mean.parameters()), 
+                                         lr=1e-3)
     def forward(self, obs):
-        mean = self.mean_net(obs)
+        mean = self.resnet_mean(obs)
         return torch.distributions.MultivariateNormal(mean, scale_tril=torch.diag(torch.exp(self.logstd)))
 
 
@@ -71,7 +73,7 @@ def train():
     normalize = transforms.Normalize((.5, .5, .5), (.5, .5, .5))
     transform = transforms.Compose([transforms.ToTensor(), normalize])
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:7" if torch.cuda.is_available() else "cpu")
     print("Using ", device)
 
     # ResNet 50
@@ -82,6 +84,9 @@ def train():
     #net50.load_state_dict(state_dict)
     #net50.to(device)
     net50 = DistModel(device, 6)
+    state_dict = torch.load('resnet_ur5_model.pth')['model_state_dict']
+    net50.load_state_dict(state_dict)
+    net50.resnet_mean.to(device)
 
     cost = nn.MSELoss()
     #optimizer = torch.optim.SGD(net50.parameters(), lr=1e-3, weight_decay=1e-4, momentum=0.9)
@@ -90,7 +95,7 @@ def train():
 
     trainLoss = []
     valLoss = []
-    EPOCHS = 200
+    EPOCHS = 500
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'whip_ur5_sa'))

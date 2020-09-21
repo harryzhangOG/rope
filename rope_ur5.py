@@ -16,13 +16,23 @@ from blender_rope import *
 from rigidbody_rope import *
 from ur5_viz import UR5, add_child
 import argparse
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
+
+# Daniel: need to get torch working.
+###import torch
+###import torch.nn as nn
+###from torchvision import models, transforms
+
 from PIL import Image
-sys.path.append('/Users/harryzhang/Library/Python/3.7/lib/python/site-packages')
-from train_ur5_sim_resnet import DistModel
+
+# Daniel I don't think this is necessary
+###sys.path.append('/Users/harryzhang/Library/Python/3.7/lib/python/site-packages')
+
+# Daniel: need to get torch working.
+##from train_ur5_sim_resnet import DistModel
+
 from cvxopt import spmatrix, matrix, solvers, printing
+
+
 # Sparse matrices. Collects rows, columns, and values as triples
 # to be later passed to the spmatrix function.
 class SPMatBuilder:
@@ -42,6 +52,7 @@ class SPMatBuilder:
 
     def build(self, rows, cols):
         return spmatrix(self.v, self.i, self.j, (rows, cols), 'd')
+
 
 MIN_CONFIG = np.array([ -2*pi, -pi, -2*pi, -2*pi, -2*pi, -2*pi ])
 MAX_CONFIG = np.array([  2*pi,   0,  2*pi,  2*pi,  2*pi,  2*pi ])
@@ -71,6 +82,7 @@ MAX_ACCELERATION = np.array([
 MAX_JERK = MAX_ACCELERATION
 MAX_JERK[1] *= 0.75
 
+
 def qp_whip_motion(start_config, mid_config, end_config, H, t_step):
     # Build QP in form:
     #
@@ -85,11 +97,11 @@ def qp_whip_motion(start_config, mid_config, end_config, H, t_step):
 
     mid = (H+1)//2
     mid_angle = pi/3.
-        
+
     dim = 6
     num_states = (H+1)*dim
     a0_index = num_states * 2
-    
+
     def qvar(t, j): return t*dim + j
     def vvar(t, j): return num_states + t*dim + j
     def avar(t, j): return a0_index + t*dim + j
@@ -239,6 +251,7 @@ def qp_whip_motion(start_config, mid_config, end_config, H, t_step):
     traj = np.array(sol['x']).reshape((3*(H+1),6))
     return traj[0:H+1,:], traj[H+1:(H+1)*2], traj[(H+1)*2:(H+1)*3]
 
+
 def generate_whip_motion(start_config, mid_config, end_config, H, t_step):
     cfg, vel, acc = qp_whip_motion(start_config, mid_config, end_config, H, t_step)
     while True:
@@ -247,6 +260,7 @@ def generate_whip_motion(start_config, mid_config, end_config, H, t_step):
         if cnew is None:
             return cfg, vel, acc, H
         cfg, vel, acc = cnew, vnew, anew
+
 
 def bpy_main(start_config, mid_config, end_config):
     import bpy
@@ -263,7 +277,7 @@ def bpy_main(start_config, mid_config, end_config):
     fps = 24
     H = ceil(fps*duration)
     cfg, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
-    
+
     ur5 = UR5()
     kf = 1
     for t in range(cfg.shape[0]):
@@ -272,7 +286,7 @@ def bpy_main(start_config, mid_config, end_config):
         ur5.set_config(wp)
         ur5.keyframe_insert(kf)
         kf = kf + 1
-        
+
     bpy.context.scene.frame_end = kf
     bpy.context.scene.frame_set(1)
 
@@ -285,6 +299,7 @@ def bpy_main(start_config, mid_config, end_config):
     camera.rotation_euler = (1.1429533958435059, 3.1036906875669956e-06, -1.4192959070205688)
     light = bpy.data.objects['Light']
     light.location = (-3.047271728515625, -1.5726829767227173, 5.903861999511719)
+
 
 def dat_main(start_config, mid_config, end_config):
     # start_config = [-pi/4., 0., pi/6., -pi/4, pi/4., 0.]
@@ -307,6 +322,7 @@ def take_action(held_link, at, keyf, settlef):
     held_link.keyframe_insert(data_path="location")
     bpy.context.scene.frame_set(bpy.context.scene.frame_current + settlef)
     held_link.keyframe_insert(data_path="location")
+
 
 def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius):
     min_y = inf
@@ -335,6 +351,7 @@ def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius):
     print(suc)
     return suc > 1 and num > 1
 
+
 if "__main__" == __name__:
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
@@ -351,10 +368,9 @@ if "__main__" == __name__:
     rope = make_rope_v3(params)
     make_table(params)
     frame_end = 25 * 30
-    
+
     bpy.context.scene.rigidbody_world.point_cache.frame_end = frame_end
     bpy.context.scene.frame_end = frame_end
-
 
     held_link = rope[-1]
     held_link.rigid_body.kinematic = True
@@ -384,7 +400,7 @@ if "__main__" == __name__:
     image = args.image
     mode = args.mode
 
-    if mode == "DATAGEN":    
+    if mode == "DATAGEN":
 
         for seq_no in range(N):
             print('Experiment Number: ', seq_no)
@@ -410,7 +426,7 @@ if "__main__" == __name__:
 
             if image:
                 mat = bpy.data.materials.new(name="red")
-                mat.diffuse_color = (1, 0, 0, 0)    
+                mat.diffuse_color = (1, 0, 0, 0)
                 cylinder.data.materials.append(mat)
 
             bpy.ops.mesh.primitive_cube_add(location=(23, 0, 0))
@@ -502,7 +518,7 @@ if "__main__" == __name__:
                 if counter > 10 and not success:
                     bpy.context.scene.frame_set(51)
                     break
-            
+
             bpy.context.scene.frame_set(51)
             mid_pred.append(mid_config)
             if image:
@@ -556,7 +572,7 @@ if "__main__" == __name__:
 
         if image:
             mat = bpy.data.materials.new(name="red")
-            mat.diffuse_color = (1, 0, 0, 0)    
+            mat.diffuse_color = (1, 0, 0, 0)
             cylinder.data.materials.append(mat)
 
         bpy.ops.mesh.primitive_cube_add(location=(23, 0, 0))
@@ -653,8 +669,3 @@ if "__main__" == __name__:
         print("Success: ", success)
 
         bpy.context.scene.frame_set(51)
-
-
-
-
-

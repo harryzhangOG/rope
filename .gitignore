@@ -1,2 +1,8 @@
 __pycache__/
 states_actions/
+
+*.swo
+*.swp
+
+*.pkl
+*.png

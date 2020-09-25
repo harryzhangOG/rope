@@ -10,6 +10,8 @@ from PIL import Image
 
 import torchvision.models as models
 import os
+import sys
+sys.path.append('/usr/local/lib/python3.7/site-packages')
 import natsort
 
 class TrainDataset(Dataset):

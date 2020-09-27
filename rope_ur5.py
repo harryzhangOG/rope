@@ -7,7 +7,6 @@ import bpy, bpy_extras
 from math import *
 from mathutils import *
 import random
-import numpy as np
 import random
 from random import sample
 import bmesh
@@ -20,6 +19,9 @@ import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
+#sys.path.append('/Users/harryzhang/Library/Python/3.7/lib/python/site-packages')
+sys.path.append('/usr/local/lib/python3.6/dist-packages')
+import numpy as np
 sys.path.append('/Users/harryzhang/Library/Python/3.7/lib/python/site-packages')
 from train_ur5_sim_resnet import DistModel
 from cvxopt import spmatrix, matrix, solvers, printing
@@ -385,6 +387,8 @@ if "__main__" == __name__:
     mode = args.mode
 
     if mode == "DATAGEN":    
+	
+	mid_pred = []
 
         for seq_no in range(N):
             print('Experiment Number: ', seq_no)

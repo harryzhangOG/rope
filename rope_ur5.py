@@ -387,9 +387,7 @@ if "__main__" == __name__:
     mode = args.mode
 
     if mode == "DATAGEN":    
-	
-	mid_pred = []
-
+        mid_pred = []
         for seq_no in range(N):
             print('Experiment Number: ', seq_no)
             # remove all keyframes
@@ -412,10 +410,10 @@ if "__main__" == __name__:
             cylinder.rigid_body.type = 'PASSIVE'
             cylinder.rigid_body.friction = 0.7
 
-            obstacle_loc_top = (obstacle_loc[0], obstacle_loc[1], obstacle_loc[2] + obstacle_height * 5 + 5)
+            obstacle_loc_top = (obstacle_loc[0], obstacle_loc[1], obstacle_loc[2] + obstacle_height / 2 + 10 + np.random.uniform(5, 10))
             bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc_top)
             bpy.ops.rigidbody.object_add()
-            bpy.ops.transform.resize(value=(1,1,obstacle_height * 5))
+            bpy.ops.transform.resize(value=(1,1,10))
             cylinder2 = bpy.context.object
             cylinder2.rigid_body.type = 'PASSIVE'
             cylinder2.rigid_body.friction = 0.7
@@ -516,12 +514,13 @@ if "__main__" == __name__:
                     bpy.context.scene.frame_set(51)
                     break
             
-            mid_pred = []
             bpy.context.scene.frame_set(51)
             mid_pred.append(mid_config)
             if image:
                 if not os.path.exists("./whip_ur5_sa/images"):
                     os.makedirs('./whip_ur5_sa/images')
+                if not os.path.exists("./whip_ur5_sa/images_2"):
+                    os.makedirs('./whip_ur5_sa/images_2')
                 # Get the scene
                 scene = bpy.context.scene
                 # Set render resolution
@@ -531,9 +530,12 @@ if "__main__" == __name__:
                 save_render_path = os.path.join(os.getcwd(), 'whip_ur5_sa/images')
                 bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_state_%05d.jpg'%(seq_no))
                 bpy.context.scene.camera.location = (5, 0, 60)
+                bpy.context.scene.camera.rotation_mode = 'XYZ'
+                bpy.context.scene.camera.rotation_euler[0] = 0
+                bpy.context.scene.camera.rotation_euler[1] = 0
                 bpy.ops.render.render(write_still = True)
 
-                save_render_path = os.path.join(os.getcwd(), 'whip_ur5_sa/images')
+                save_render_path = os.path.join(os.getcwd(), 'whip_ur5_sa/images_2')
                 bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_state_side_%05d.jpg'%(seq_no))
                 bpy.context.scene.camera.location = (5, 50, 5)
                 bpy.context.scene.camera.rotation_mode = 'XYZ'
@@ -547,6 +549,12 @@ if "__main__" == __name__:
                 bpy.context.view_layer.objects.active = cylinder
                 cylinder.name="cylinder"
                 bpy.data.objects['cylinder'].select_set(True)
+                bpy.ops.object.delete(use_global=False)
+
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = cylinder2
+                cylinder2.name="cylinder2"
+                bpy.data.objects['cylinder2'].select_set(True)
                 bpy.ops.object.delete(use_global=False)
         if not os.path.exists("./whip_ur5_sa"):
             os.makedirs('./whip_ur5_sa')

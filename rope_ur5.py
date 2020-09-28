@@ -25,6 +25,9 @@ import numpy as np
 sys.path.append('/Users/harryzhang/Library/Python/3.7/lib/python/site-packages')
 from train_ur5_sim_resnet import DistModel
 from cvxopt import spmatrix, matrix, solvers, printing
+from pyvirtualdisplay import Display
+# start a fake display
+Display().start()
 # Sparse matrices. Collects rows, columns, and values as triples
 # to be later passed to the spmatrix function.
 class SPMatBuilder:

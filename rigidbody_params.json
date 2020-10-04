@@ -3,7 +3,7 @@
     "segment_friction": 1.0,
     "linear_damping": 0.55,
     "angular_damping": 0.55,
-    "num_segments": 50,
+    "num_segments": 20,
     "segment_mass": 0.05, 
     "table_size": 500,
     "chain_len": 5,

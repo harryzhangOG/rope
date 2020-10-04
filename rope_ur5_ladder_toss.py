@@ -315,23 +315,39 @@ def take_action(held_link, at, keyf, settlef):
 
 def success_ac(rope, cylinder):
     for r in rope:
+        # bm1 = bmesh.new()
+        # bm2 = bmesh.new()
+
+        # bm1.from_mesh(r.data)
+        # bm2.from_mesh(cylinder.data)
+
+        # bm1.transform(r.matrix_world)
+        # bm2.transform(cylinder.matrix_world)
+
+        # bvh1 = bvhtree.BVHTree.FromBMesh(bm1)
+        # bvh2 = bvhtree.BVHTree.FromBMesh(bm2)  
+
+        obj1 = r
+        obj2 = cylinder
+
         # Get their world matrix
-        mat1 = r.matrix_world
-        mat2 = cylinder.matrix_world
+        mat1 = obj1.matrix_world
+        mat2 = obj2.matrix_world
 
         # Get the geometry in world coordinates
-        vert1 = [mat1 @ v.co for v in r.data.vertices] 
-        poly1 = [p.vertices for p in r.data.polygons]
+        vert1 = [mat1 @ v.co for v in obj1.data.vertices] 
+        poly1 = [p.vertices for p in obj1.data.polygons]
 
-        vert2 = [mat2 @ v.co for v in cylinder.data.vertices] 
-        poly2 = [p.vertices for p in cylinder.data.polygons]
+        vert2 = [mat2 @ v.co for v in obj2.data.vertices] 
+        poly2 = [p.vertices for p in obj2.data.polygons]
 
         # Create the BVH trees
-        bvh1 = bvhtree.BVHTree.FromPolygons(vert1, poly1)
-        bvh2 = bvhtree.BVHTree.FromPolygons(vert2, poly2)
+        bvh1 = bvhtree.BVHTree.FromPolygons( vert1, poly1 )
+        bvh2 = bvhtree.BVHTree.FromPolygons( vert2, poly2 )
         
         # Check if overlap
         if bvh1.overlap(bvh2):
+            print(bvh1.overlap(bvh2))
             print("overlap")
             return True
     return False
@@ -400,25 +416,17 @@ if "__main__" == __name__:
             obstacle_height = 10
             obstacle_radius = np.random.uniform(0.2, 0.5) # randomize radius
             print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-            obstacle_loc = (10, 0, 1) # randomize x and z
+            obstacle_loc = (np.random.uniform(10,15), 0, np.random.uniform(1,2)) # randomize x and z
             print("Obstacle loc: ", obstacle_loc)
-            bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(np.pi / 2, 0, 0), location=obstacle_loc)
-            bpy.ops.rigidbody.object_add()
-            bpy.ops.transform.resize(value=(1,obstacle_height / 2,1))
-            cylinder = bpy.context.object
-            cylinder.rigid_body.type = 'PASSIVE'
-            cylinder.rigid_body.friction = 0.7
-
-            if image:
-                mat = bpy.data.materials.new(name="red")
-                mat.diffuse_color = (1, 0, 0, 0)    
-                cylinder.data.materials.append(mat)
+            cylinder = None
 
             d2r = pi/180.
-            start_config = np.array([pi/4., 0., pi/6., -pi/4, pi/4., 0.])
-            end_config   = np.array([-pi/3., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.])
-            # start_config = np.array([  -32.78, -167.76, -78.15,  -9.59, 75.21, -137. ])*d2r # right
-            mid_config_origin   = np.array([  -10,  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r # 66.83 ])
+            # start_config = np.array([pi/4., 0., pi/6., -pi/4, pi/4., 0.])
+            start_config = np.array([0., 0., pi/12., pi/6., pi/2., 0.])
+            # end_config  = np.array([0., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.])
+            end_config = np.array([0., 0., pi/12., pi/6., pi/2., 0.])
+            # mid_config_origin   = np.array([  -10,  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
+            mid_config_origin   = np.array([  0,  -85  , -30, -20, 90, 0. ])*d2r # 66.83 ])
             mid_base_origin = mid_config_origin[0]/d2r
             # end_config   = np.array([ -131.26, -150.59, -68.54, -36.02, 74.99, -191.24 ])*d2r
             duration = 2 # seconds
@@ -432,8 +440,16 @@ if "__main__" == __name__:
             mid_config = mid_config_origin
             counter = 0
             while not success:
+                if cylinder:
+                    bpy.ops.object.select_all(action='DESELECT')
+                    bpy.context.view_layer.objects.active = cylinder
+                    cylinder.name="cylinder"
+                    bpy.data.objects['cylinder'].select_set(True)
+                    bpy.ops.object.delete(use_global=False)
                 counter += 1
                 traj, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
+                print('traj')
+                print(traj)
                 # while True:
                 #     H = H - 1
                 #     traj_new = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
@@ -467,6 +483,19 @@ if "__main__" == __name__:
 
                 # 4. make held link.kinematic=False
                 held_link.rigid_body.kinematic = True
+
+                bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(np.pi / 2, 0, 0), location=obstacle_loc)
+                bpy.ops.rigidbody.object_add()
+                bpy.ops.transform.resize(value=(1,obstacle_height / 2,1))
+                cylinder = bpy.context.object
+                cylinder.rigid_body.type = 'PASSIVE'
+                cylinder.rigid_body.friction = 0.7
+
+                if image:
+                    mat = bpy.data.materials.new(name="red")
+                    mat.diffuse_color = (1, 0, 0, 0)    
+                    cylinder.data.materials.append(mat)
+
                 # 5. ur5.set_config(...), insert keyframes
                 if traj is not None:
                     for t in range(traj.shape[0]):
@@ -487,14 +516,14 @@ if "__main__" == __name__:
                     bpy.context.scene.frame_set(i)
 
                 success = success_ac(rope, cylinder)
-                if not success:
+                if not success and False:
                     mid_config = np.array([ mid_base_origin + np.random.uniform(-10, 10),  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
                     for f in range(51, 100):
                         ur5.keyframe_delete(f)
 
                 print("Success: ", success)
 
-                if counter > 1 and not success:
+                if counter > 0 and not success:
                     bpy.context.scene.frame_set(51)
                     break
             
@@ -533,12 +562,6 @@ if "__main__" == __name__:
                 bpy.context.view_layer.objects.active = cylinder
                 cylinder.name="cylinder"
                 bpy.data.objects['cylinder'].select_set(True)
-                bpy.ops.object.delete(use_global=False)
-
-                bpy.ops.object.select_all(action='DESELECT')
-                bpy.context.view_layer.objects.active = cylinder2
-                cylinder2.name="cylinder2"
-                bpy.data.objects['cylinder2'].select_set(True)
                 bpy.ops.object.delete(use_global=False)
         if not os.path.exists("./whip_ur5_sa"):
             os.makedirs('./whip_ur5_sa')

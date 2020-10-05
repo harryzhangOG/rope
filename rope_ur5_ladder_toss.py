@@ -416,7 +416,7 @@ if "__main__" == __name__:
             obstacle_height = 10
             obstacle_radius = np.random.uniform(0.2, 0.5) # randomize radius
             print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-            obstacle_loc = (np.random.uniform(10,15), 0, np.random.uniform(1,2)) # randomize x and z
+            obstacle_loc = (np.random.uniform(8,12), 0, np.random.uniform(1,3)) # randomize x and z
             print("Obstacle loc: ", obstacle_loc)
             cylinder = None
 
@@ -426,7 +426,7 @@ if "__main__" == __name__:
             # end_config  = np.array([0., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.])
             end_config = np.array([0., 0., pi/12., pi/6., pi/2., 0.])
             # mid_config_origin   = np.array([  -10,  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
-            mid_config_origin   = np.array([  0,  -85  , -30, -20, 90, 0. ])*d2r # 66.83 ])
+            mid_config_origin   = np.array([  0,  -85  , -35, -30, 90, 0. ])*d2r # 66.83 ])
             mid_base_origin = mid_config_origin[0]/d2r
             # end_config   = np.array([ -131.26, -150.59, -68.54, -36.02, 74.99, -191.24 ])*d2r
             duration = 2 # seconds
@@ -517,7 +517,7 @@ if "__main__" == __name__:
 
                 success = success_ac(rope, cylinder)
                 if not success and False:
-                    mid_config = np.array([ mid_base_origin + np.random.uniform(-10, 10),  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
+                    mid_config = np.array([  0,  -85 + np.random.uniform(-10, 10)  , -35 + np.random.uniform(-10, 10), -30 + np.random.uniform(-10, 10), 90, 0. ])*d2r
                     for f in range(51, 100):
                         ur5.keyframe_delete(f)
 

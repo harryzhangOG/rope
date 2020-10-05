@@ -315,40 +315,12 @@ def take_action(held_link, at, keyf, settlef):
 
 def success_ac(rope, cylinder):
     for r in rope:
-        # bm1 = bmesh.new()
-        # bm2 = bmesh.new()
+        v_local = r.data.vertices[0].co # local vertex coordinate
+        v_global = r.matrix_world @ v_local # global vertex coordinates
 
-        # bm1.from_mesh(r.data)
-        # bm2.from_mesh(cylinder.data)
+        print(v_global)
 
-        # bm1.transform(r.matrix_world)
-        # bm2.transform(cylinder.matrix_world)
-
-        # bvh1 = bvhtree.BVHTree.FromBMesh(bm1)
-        # bvh2 = bvhtree.BVHTree.FromBMesh(bm2)  
-
-        obj1 = r
-        obj2 = cylinder
-
-        # Get their world matrix
-        mat1 = obj1.matrix_world
-        mat2 = obj2.matrix_world
-
-        # Get the geometry in world coordinates
-        vert1 = [mat1 @ v.co for v in obj1.data.vertices] 
-        poly1 = [p.vertices for p in obj1.data.polygons]
-
-        vert2 = [mat2 @ v.co for v in obj2.data.vertices] 
-        poly2 = [p.vertices for p in obj2.data.polygons]
-
-        # Create the BVH trees
-        bvh1 = bvhtree.BVHTree.FromPolygons( vert1, poly1 )
-        bvh2 = bvhtree.BVHTree.FromPolygons( vert2, poly2 )
-        
-        # Check if overlap
-        if bvh1.overlap(bvh2):
-            print(bvh1.overlap(bvh2))
-            print("overlap")
+        if v_global[2] > cylinder.matrix_world.translation[2]:
             return True
     return False
 

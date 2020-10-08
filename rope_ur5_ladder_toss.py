@@ -318,8 +318,6 @@ def success_ac(rope, cylinder):
         v_local = r.data.vertices[0].co # local vertex coordinate
         v_global = r.matrix_world @ v_local # global vertex coordinates
 
-        print(v_global)
-
         if v_global[2] > cylinder.matrix_world.translation[2]:
             return True
     return False
@@ -365,7 +363,7 @@ if "__main__" == __name__:
     ur5.base.location[2] = 2
     bpy.context.view_layer.objects.active = ur5.base
     bpy.context.object.rotation_mode = 'XYZ'
-    ur5.base.rotation_euler = Euler((0, 0, pi), 'XYZ')
+    ur5.base.rotation_euler = Euler((0, 0, pi + pi/2), 'XYZ')
     bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)
     bpy.context.view_layer.update()
 
@@ -394,11 +392,11 @@ if "__main__" == __name__:
 
             d2r = pi/180.
             # start_config = np.array([pi/4., 0., pi/6., -pi/4, pi/4., 0.])
-            start_config = np.array([0., 0., pi/12., pi/6., pi/2., 0.])
+            start_config = np.array([-pi/2., 0., pi/12., pi/6., pi/2., -pi])
             # end_config  = np.array([0., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.])
-            end_config = np.array([0., 0., pi/12., pi/6., pi/2., 0.])
+            end_config = np.array([-pi/2., 0., pi/12., pi/6., pi/2., -pi])
             # mid_config_origin   = np.array([  -10,  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
-            mid_config_origin   = np.array([  0,  -85  , -35, -30, 90, 0. ])*d2r # 66.83 ])
+            mid_config_origin   = np.array([  -90,  -85  , -35, -30, 90, -180])*d2r # 66.83 ])
             mid_base_origin = mid_config_origin[0]/d2r
             # end_config   = np.array([ -131.26, -150.59, -68.54, -36.02, 74.99, -191.24 ])*d2r
             duration = 2 # seconds
@@ -488,14 +486,14 @@ if "__main__" == __name__:
                     bpy.context.scene.frame_set(i)
 
                 success = success_ac(rope, cylinder)
-                if not success and False:
+                if not success:
                     mid_config = np.array([  0,  -85 + np.random.uniform(-10, 10)  , -35 + np.random.uniform(-10, 10), -30 + np.random.uniform(-10, 10), 90, 0. ])*d2r
                     for f in range(51, 100):
                         ur5.keyframe_delete(f)
 
                 print("Success: ", success)
 
-                if counter > 0 and not success:
+                if counter > 10 and not success:
                     bpy.context.scene.frame_set(51)
                     break
             

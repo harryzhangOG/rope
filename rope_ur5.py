@@ -508,8 +508,9 @@ if "__main__" == __name__:
                     break
             
             bpy.context.scene.frame_set(51)
-            mid_pred.append(mid_config)
-            if image:
+	    if success:
+            	mid_pred.append(mid_config)
+            if image and success:
                 if not os.path.exists("./whip_ur5_sa/images"):
                     os.makedirs('./whip_ur5_sa/images')
                 # Get the scene

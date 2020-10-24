@@ -25,9 +25,6 @@ import numpy as np
 sys.path.append('/Users/harryzhang/Library/Python/3.7/lib/python/site-packages')
 from train_ur5_sim_resnet import DistModel
 from cvxopt import spmatrix, matrix, solvers, printing
-from pyvirtualdisplay import Display
-# start a fake display
-Display().start()
 # Sparse matrices. Collects rows, columns, and values as triples
 # to be later passed to the spmatrix function.
 class SPMatBuilder:
@@ -390,7 +387,9 @@ if "__main__" == __name__:
     mode = args.mode
 
     if mode == "DATAGEN":    
+
         mid_pred = []
+
         for seq_no in range(N):
             print('Experiment Number: ', seq_no)
             # remove all keyframes
@@ -413,19 +412,10 @@ if "__main__" == __name__:
             cylinder.rigid_body.type = 'PASSIVE'
             cylinder.rigid_body.friction = 0.7
 
-            obstacle_loc_top = (obstacle_loc[0], obstacle_loc[1], obstacle_loc[2] + obstacle_height / 2 + 10 + np.random.uniform(5, 10))
-            bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc_top)
-            bpy.ops.rigidbody.object_add()
-            bpy.ops.transform.resize(value=(1,1,10))
-            cylinder2 = bpy.context.object
-            cylinder2.rigid_body.type = 'PASSIVE'
-            cylinder2.rigid_body.friction = 0.7
-
             if image:
                 mat = bpy.data.materials.new(name="red")
                 mat.diffuse_color = (1, 0, 0, 0)    
                 cylinder.data.materials.append(mat)
-                cylinder2.data.materials.append(mat)
 
             bpy.ops.mesh.primitive_cube_add(location=(23, 0, 0))
             bpy.ops.rigidbody.object_add(type="PASSIVE")
@@ -448,10 +438,12 @@ if "__main__" == __name__:
 
             success = False
             mid_config = mid_config_origin
+            mid_keyframe = 61
             counter = 0
             while not success:
                 counter += 1
-                traj, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
+                traj = None
+                # traj, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
                 # while True:
                 #     H = H - 1
                 #     traj_new = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
@@ -497,7 +489,7 @@ if "__main__" == __name__:
                     ur5.set_config(start_config)
                     ur5.keyframe_insert(51)
                     ur5.set_config(mid_config)
-                    ur5.keyframe_insert(61)
+                    ur5.keyframe_insert(mid_keyframe)
                     ur5.set_config(end_config)
                     ur5.keyframe_insert(71)
 
@@ -508,22 +500,22 @@ if "__main__" == __name__:
                 success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
                 if not success:
                     mid_config = np.array([ mid_base_origin + np.random.uniform(-10, 10),  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
+                    mid_keyframe = np.random.randint(56, 67)
                     for f in range(51, 100):
                         ur5.keyframe_delete(f)
 
-                print("Success: ", success)
+                print("Success: ", success, ", Trial: ", counter)
 
                 if counter > 10 and not success:
                     bpy.context.scene.frame_set(51)
                     break
             
             bpy.context.scene.frame_set(51)
-            mid_pred.append(mid_config)
-            if image:
+            if success:
+                mid_pred.append(np.append(mid_config, np.array([mid_keyframe]), axis=0))
+            if image and success:
                 if not os.path.exists("./whip_ur5_sa/images"):
                     os.makedirs('./whip_ur5_sa/images')
-                if not os.path.exists("./whip_ur5_sa/images_2"):
-                    os.makedirs('./whip_ur5_sa/images_2')
                 # Get the scene
                 scene = bpy.context.scene
                 # Set render resolution
@@ -533,17 +525,6 @@ if "__main__" == __name__:
                 save_render_path = os.path.join(os.getcwd(), 'whip_ur5_sa/images')
                 bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_state_%05d.jpg'%(seq_no))
                 bpy.context.scene.camera.location = (5, 0, 60)
-                bpy.context.scene.camera.rotation_mode = 'XYZ'
-                bpy.context.scene.camera.rotation_euler[0] = 0
-                bpy.context.scene.camera.rotation_euler[1] = 0
-                bpy.ops.render.render(write_still = True)
-
-                save_render_path = os.path.join(os.getcwd(), 'whip_ur5_sa/images_2')
-                bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_state_side_%05d.jpg'%(seq_no))
-                bpy.context.scene.camera.location = (5, 50, 5)
-                bpy.context.scene.camera.rotation_mode = 'XYZ'
-                bpy.context.scene.camera.rotation_euler[0] = -(0.5 * np.pi) 
-                bpy.context.scene.camera.rotation_euler[1] = np.pi 
                 bpy.ops.render.render(write_still = True)
 
             if N > 1:
@@ -552,12 +533,6 @@ if "__main__" == __name__:
                 bpy.context.view_layer.objects.active = cylinder
                 cylinder.name="cylinder"
                 bpy.data.objects['cylinder'].select_set(True)
-                bpy.ops.object.delete(use_global=False)
-
-                bpy.ops.object.select_all(action='DESELECT')
-                bpy.context.view_layer.objects.active = cylinder2
-                cylinder2.name="cylinder2"
-                bpy.data.objects['cylinder2'].select_set(True)
                 bpy.ops.object.delete(use_global=False)
         if not os.path.exists("./whip_ur5_sa"):
             os.makedirs('./whip_ur5_sa')
@@ -686,8 +661,3 @@ if "__main__" == __name__:
         print("Success: ", success)
 
         bpy.context.scene.frame_set(51)
-
-
-
-
-

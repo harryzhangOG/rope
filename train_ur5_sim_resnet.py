@@ -83,9 +83,9 @@ def train():
     #state_dict = torch.load('resnet50_model_old.pth')['model_state_dict']
     #net50.load_state_dict(state_dict)
     #net50.to(device)
-    net50 = DistModel(device, 6)
-    state_dict = torch.load('resnet_ur5_model.pth')['model_state_dict']
-    net50.load_state_dict(state_dict)
+    net50 = DistModel(device, 7)
+    # state_dict = torch.load('resnet_ur5_model.pth')['model_state_dict']
+    # net50.load_state_dict(state_dict)
     net50.resnet_mean.to(device)
 
     cost = nn.MSELoss()
@@ -99,7 +99,7 @@ def train():
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'whip_ur5_sa'))
-    holdout = 500
+    holdout = 700
 
     train_dataset = TrainDataset(path, transform, holdout, device)
     val_dataset = ValDataset(path, transform, holdout, device)
@@ -107,7 +107,10 @@ def train():
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=64, shuffle=True)
 
+    prev_val_loss = float('inf')
+
     for epoch in range(EPOCHS):
+        
         for i, batch in enumerate(train_dataloader, 0):
             net50.train()
             train_x, train_y = batch
@@ -127,6 +130,9 @@ def train():
             trainLoss.append(tloss)
             if i % 10 == 0:
                 print('[Epoch %d, Iteration %d] Training Loss: %.5f' % (epoch+1, i, tloss))
+        
+        val_loss = []
+
         for i, batch in enumerate(val_dataloader, 0):
             net50.eval()
 
@@ -136,16 +142,24 @@ def train():
             val_outputs = net50(val_x).rsample()
             vloss = cost(val_outputs, val_y.float()).item()
             valLoss.append(vloss)
+            val_loss.append(vloss)
             if i % 10 == 0:
                 print('[Epoch %d, Iteration %d] Validation Loss: %.5f' % (epoch+1, i, vloss))
             
         lr_scheduler.step()
         for param_group in optimizer.param_groups:
             print("Current learning rate: ", param_group['lr'])
+        
+        val_loss_avg = np.mean(val_loss)
 
-    torch.save({'model_state_dict': net50.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict()
-               }, 'resnet_ur5_model.pth')
+        if val_loss_avg < prev_val_loss:
+            torch.save({'model_state_dict': net50.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict()
+                }, 'resnet_ur5_model.pth')
+            prev_val_loss = val_loss_avg
+            print('Saved, val loss = ', val_loss_avg)
+
+    
     return trainLoss, valLoss
 
 if __name__ == "__main__":
@@ -155,6 +169,5 @@ if __name__ == "__main__":
     save_dir = os.path.join(os.getcwd(), 'results_whip_ur5')
     np.save(os.path.join(save_dir, 'trainloss_resnet.npy'), trainLoss)
     np.save(os.path.join(save_dir, 'valloss_resnet.npy'), valLoss)
-    EPOCHS = 1000
 
                 

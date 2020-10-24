@@ -99,7 +99,7 @@ def train():
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'whip_ur5_sa'))
-    holdout = 700
+    holdout = 500
 
     train_dataset = TrainDataset(path, transform, holdout, device)
     val_dataset = ValDataset(path, transform, holdout, device)

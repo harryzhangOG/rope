@@ -539,7 +539,7 @@ if "__main__" == __name__:
         np.save(os.path.join(os.getcwd(), 'whip_ur5_sa/a.npy'), np.array(mid_pred))
     else:
         device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
-        net50 = DistModel(device, 6)
+        net50 = DistModel(device, 7)
         state_dict = torch.load('resnet_ur5_model.pth', map_location=device)['model_state_dict']
         net50.load_state_dict(state_dict)
         net50.resnet_mean.to(device)
@@ -621,9 +621,12 @@ if "__main__" == __name__:
         in_image = preprocess(in_image).unsqueeze(0)
 
         net50.eval()
-        mid_config_pred = net50(in_image.to(device)).sample().detach().numpy()[0]
+        config_and_kf = net50(in_image.to(device)).sample().detach().numpy()[0]
+        mid_config_pred = config_and_kf[:-1]
+        mid_kf = config_and_kf[-1]
 
-        traj, vel, acc, H = generate_whip_motion(start_config, mid_config_pred, end_config, H, 1./fps)
+        # traj, vel, acc, H = generate_whip_motion(start_config, mid_config_pred, end_config, H, 1./fps)
+        traj = None
         kf = 51
         ur5.set_config(start_config)
         ur5.keyframe_insert(1)
@@ -647,8 +650,8 @@ if "__main__" == __name__:
         else:
             ur5.set_config(start_config)
             ur5.keyframe_insert(51)
-            ur5.set_config(mid_config)
-            ur5.keyframe_insert(61)
+            ur5.set_config(mid_config_pred)
+            ur5.keyframe_insert(mid_kf)
             ur5.set_config(end_config)
             ur5.keyframe_insert(71)
 

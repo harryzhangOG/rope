@@ -390,7 +390,8 @@ if "__main__" == __name__:
 
         mid_pred = []
 
-        for seq_no in range(N):
+        i = 0
+        while i < N:
             print('Experiment Number: ', seq_no)
             # remove all keyframes
 
@@ -534,6 +535,7 @@ if "__main__" == __name__:
                 cylinder.name="cylinder"
                 bpy.data.objects['cylinder'].select_set(True)
                 bpy.ops.object.delete(use_global=False)
+            i += 1
         if not os.path.exists("./whip_ur5_sa"):
             os.makedirs('./whip_ur5_sa')
         np.save(os.path.join(os.getcwd(), 'whip_ur5_sa/a.npy'), np.array(mid_pred))

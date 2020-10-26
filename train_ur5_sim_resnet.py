@@ -95,7 +95,7 @@ def train():
 
     trainLoss = []
     valLoss = []
-    EPOCHS = 500
+    EPOCHS = 150
 
     # Load data
     path = os.path.join(os.path.join(os.getcwd(), 'whip_ur5_sa'))

@@ -499,7 +499,7 @@ if "__main__" == __name__:
                 obstacle_x, obstacle_y, obstacle_z = cylinder.matrix_world.translation
                 success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
                 if not success:
-                    mid_config = np.array([ mid_base_origin + np.random.uniform(-10, 10),  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
+                    mid_config = np.array([ mid_base_origin + np.random.uniform(-10, 10),  -97.6 + np.random.uniform(-10, 10), -15.84  + np.random.uniform(-10, 10), -17.65, 75.18, 0. ])*d2r
                     mid_keyframe = np.random.randint(56, 67)
                     for f in range(51, 100):
                         ur5.keyframe_delete(f)
@@ -512,7 +512,7 @@ if "__main__" == __name__:
             
             bpy.context.scene.frame_set(51)
             if success:
-                mid_pred.append(np.append(mid_config, np.array([mid_keyframe]), axis=0))
+                mid_pred.append(np.append(mid_config[:3], np.array([mid_keyframe]), axis=0))
             if image and success:
                 if not os.path.exists("./whip_ur5_sa/images"):
                     os.makedirs('./whip_ur5_sa/images')
@@ -540,7 +540,7 @@ if "__main__" == __name__:
     else:
         device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
         net50 = DistModel(device, 7)
-        state_dict = torch.load('resnet_ur5_model.pth', map_location=device)['model_state_dict']
+        state_dict = torch.load('../resnet_ur5_model.pth', map_location=device)['model_state_dict']
         net50.load_state_dict(state_dict)
         net50.resnet_mean.to(device)
 
@@ -624,6 +624,7 @@ if "__main__" == __name__:
         config_and_kf = net50(in_image.to(device)).sample().detach().numpy()[0]
         mid_config_pred = config_and_kf[:-1]
         mid_kf = config_and_kf[-1]
+        print(mid_config_pred, mid_kf)
 
         # traj, vel, acc, H = generate_whip_motion(start_config, mid_config_pred, end_config, H, 1./fps)
         traj = None

@@ -83,7 +83,7 @@ def train():
     #state_dict = torch.load('resnet50_model_old.pth')['model_state_dict']
     #net50.load_state_dict(state_dict)
     #net50.to(device)
-    net50 = DistModel(device, 7)
+    net50 = DistModel(device, 4)
     # state_dict = torch.load('resnet_ur5_model.pth')['model_state_dict']
     # net50.load_state_dict(state_dict)
     net50.resnet_mean.to(device)

@@ -372,6 +372,14 @@ def create_walls():
     wall = bpy.context.object 
     wall.data.materials.append(wall_color)
 
+def get_highest_z(rope):
+    bpy.context.view_layer.update()
+    return np.max([r.matrix_world.translation[2] for r in rope])
+
+def get_capsule_coords(rope):
+    bpy.context.view_layer.update()
+    return [r.matrix_world.translation[:3] for r in rope]
+
 if "__main__" == __name__:
     with open("rigidbody_params.json", "r") as f:
         params = json.load(f)
@@ -443,7 +451,7 @@ if "__main__" == __name__:
             obstacle_size_xs.append(float(obstacle_size_x) * 2)
             obstacle_size_ys.append(float(obstacle_size_y) * 2)
             obstacle_heights.append(float(obstacle_height) * 4)
-            obstacle_locs.append((float(obstacle_y) + 1, -1 * float(obstacle_x), -1 + float(obstacle_height) * 4 / 2))
+            obstacle_locs.append((float(obstacle_y) * 4 + 1, -1 * float(obstacle_x) * 4, -1 + float(obstacle_height) * 4 / 2))
             apex_points.append([float(joint_1), float(joint_2), float(joint_3)])
 
         for i, apex_point in enumerate(apex_points):
@@ -547,20 +555,10 @@ if "__main__" == __name__:
     elif mode == "DATAGEN":    
 
         mid_pred = []
-        elbows = []
-        zs = []
-        coordinates = []
-        successes = []
-        num_successes = 0
 
         seq_no = 0
 
-        # obstacle_heights = np.random.uniform(1.2, 6, N)
-        # obstacle_radii = np.random.uniform(0.3, 1.5, N)
-        # obstacle_loc_x = np.random.uniform(4, 19, N)
-        # obstacle_loc_y = np.random.uniform(0, 0.375, N)
-
-        for seq_no in range(N):
+        while seq_no < N:
             print('Experiment Number: ', seq_no)
             
             # remove all keyframes
@@ -569,25 +567,15 @@ if "__main__" == __name__:
                 bpy.data.actions.remove(ac)
 
             keyf = np.random.randint(10, 20)
-            keyf = 20
 
-            obstacle_height = 2.4
-            # obstacle_height = np.random.uniform(1.2, 6)
-            # obstacle_height = obstacle_heights[seq_no]
-            # obstacle_radius = 0.6
-            # obstacle_radius = np.random.uniform(0.3, 1.5)
-            # obstacle_radius = obstacle_radii[seq_no]
-            # print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-            # obstacle_loc = (np.random.uniform(4, 19), -0.05-np.random.uniform(0, 0.375), -1+obstacle_height/2)
-            # obstacle_loc = (obstacle_loc_x[seq_no], obstacle_loc_y[seq_no], -1+obstacle_height/2)
-            obstacle_loc = (17.8, 0, -1+obstacle_height/2)
-            # obstacle_loc = (-2, 1, -1+obstacle_height/2)
-            # print("Obstacle loc: ", obstacle_loc)
+            obstacle_height = np.random.uniform(1.2, 6)
+            obstacle_size_x = np.random.uniform(0.3, 0.6)
+            obstacle_size_y = np.random.uniform(0.3, 0.6)
+            print("Obstacle height %03f, Obstacle size x %03f, Obstacle size y %03f" %(obstacle_height, obstacle_size_x, obstacle_size_y))
+            obstacle_loc = (np.random.uniform(4, 19), -0.05-np.random.uniform(-1.2, 4), -1+obstacle_height/2)
+            print("Obstacle loc: ", obstacle_loc)
 
-            obstacle_size_x = 0.3
-            obstacle_size_y = 0.6
-
-            cylinder = create_obstacle(obstacle_height, obstacle_size_x, obstacle_size_y, obstacle_loc)
+            obstacle = create_obstacle(obstacle_height, obstacle_size_x, obstacle_size_y, obstacle_loc)
 
             if task == 'KNOCKING':
                 obstacle_top_height = 10
@@ -602,10 +590,10 @@ if "__main__" == __name__:
             end_config   = np.array([-138.9,  -17.8, 72.54, -152.87, -117.25, -213.24])*d2r
             # start_config = np.array([  -32.78, -167.76, -78.15,  -9.59, 75.21, -137. ])*d2r # right
             # mid_config_origin   = np.array([  -10,  -97.6 , -15.84, -17.65, 75.18, 0. ]) # 66.83 ])
-            # mid_config_origin   = np.array([   -80.70,  -86.7, 15.68, -169.95, -89.07, -189.])
+            mid_config_origin = np.array([   -80.70,  -86.7, 15.68])
+            mid_config = np.append(mid_config_origin, np.array([-169.95, -89.07, -189.]))
             # mid_config_origin   = np.array([   -75.76,  -62.7 , 22.68, -169.95, -89.07, -189.])
-            mid_config_origin = np.append(np.array([-1.3663, -1.0878,  0.3772])/d2r, np.array([-169.95, -89.07, -189.]))
-            mid_base_origin = mid_config_origin[0]/d2r
+            # mid_config_origin = np.append(np.array([-1.3663, -1.0878,  0.3772])/d2r, np.array([-169.95, -89.07, -189.]))
             # end_config   = np.array([ -131.26, -150.59, -68.54, -36.02, 74.99, -191.24 ])*d2r
             duration = 2 # seconds
             fps = 24
@@ -615,8 +603,6 @@ if "__main__" == __name__:
             H = ceil(duration/t_step)
 
             success = False
-            mid_config = mid_config_origin
-            mid_keyframe = 61
             counter = 0
             while not success:
                 counter += 1
@@ -628,10 +614,18 @@ if "__main__" == __name__:
                 #     if traj_new is None:
                 #         break
                 #     traj = traj_new
-                kf = 51
+                
                 ur5.set_config(start_config)
                 ur5.keyframe_insert(1)
                 bpy.context.scene.frame_set(1)
+
+                # Move held link to the upper-left to ensure rope is to the left of obstacle
+                ur5.base.location[0] = 1
+                ur5.base.location[1] = 8
+                ur5.base.location[2] = 8
+                bpy.context.view_layer.objects.active = ur5.base
+                bpy.ops.object.transform_apply(location = True, scale = False, rotation = False)
+                bpy.context.view_layer.update()
 
                 # 2a. A keyframe motion of held link to put in gripper (start kf = 1, end kf = 50)
                 held_link.keyframe_insert(data_path="location")
@@ -672,10 +666,10 @@ if "__main__" == __name__:
                 # 4. make held link.kinematic=False
                 held_link.rigid_body.kinematic = True
                 # 5. ur5.set_config(...), insert keyframes
+                kf = 101
                 if traj is not None:
                     for t in range(traj.shape[0]):
                         wp = traj[t,:]
-                        # print(wp)
                         ur5.set_config(wp)
                         ur5.keyframe_insert(kf)
                         kf = kf + 1
@@ -687,43 +681,26 @@ if "__main__" == __name__:
                     ur5.set_config(end_config)
                     ur5.keyframe_insert(121)
 
-                def get_highest_z(rope):
-                    bpy.context.view_layer.update()
-                    return np.max([r.matrix_world.translation[2] for r in rope])
-
-                def get_capsule_coords(rope):
-                    bpy.context.view_layer.update()
-                    return [r.matrix_world.translation[:3] for r in rope]
-
-                highest_z = 0
                 for i in range(101, 300):
                     bpy.context.scene.frame_set(i)
-                    # coordinates.extend(get_capsule_coords(rope))
-                    # highest_z = max(highest_z, get_highest_z(rope))
 
-                
-                obstacle_x, obstacle_y, obstacle_z = cylinder.matrix_world.translation
-                # success = True
                 success = success_ac(rope, obstacle_loc[0], obstacle_loc[1], obstacle_loc[2], obstacle_size_x, obstacle_size_y)
                 if not success:
-                    mid_config = np.array([ -10 + np.random.uniform(-10, 10),  -97.6 + np.random.uniform(-10, 10), -15.84  + np.random.uniform(-10, 10), -17.65, 75.18, 0. ])
-                    mid_keyframe = np.random.randint(56, 67)
-                    # for f in range(51, 100):
-                        # ur5.keyframe_delete(f)
+                    mid_config = np.append(mid_config_origin + np.array([np.random.uniform(4, 10) * random.choice((-1, 1)),  np.random.uniform(4, 10) * random.choice((-1, 1)), np.random.uniform(4, 8)]), np.array([-17.65, 75.18, 0. ]))
+                    for f in range(101, 300):
+                        ur5.keyframe_delete(f)
 
                 print("Success: ", success, ", Trial: ", counter)
 
-                zs.append(highest_z)
-
-                if counter > 0 and not success:
+                if counter > 10 and not success:
                     bpy.context.scene.frame_set(101)
+                    held_link.parent = None
                     break
             
             bpy.context.scene.frame_set(101)
             if success:
-                # print(mid_config[:3])
-                num_successes += 1
-                mid_pred.append(np.append(mid_config[:3], np.array([mid_keyframe]), axis=0))
+                mid_pred.append(mid_config[:3])
+                seq_no += 1
 
             if image and success:
                 if not os.path.exists("./whip_ur5_sa/images"):
@@ -739,19 +716,18 @@ if "__main__" == __name__:
                 bpy.context.scene.camera.location = (5, 0, 60)
                 bpy.ops.render.render(write_still = True)
 
-            if N > 1:
+            if N > 1 and seq_no < N:
                 # Delete the obstacle
                 bpy.ops.object.select_all(action='DESELECT')
-                bpy.context.view_layer.objects.active = cylinder
-                cylinder.name="cylinder"
-                bpy.data.objects['cylinder'].select_set(True)
+                bpy.context.view_layer.objects.active = obstacle
+                obstacle.name="obstacle"
+                bpy.data.objects['obstacle'].select_set(True)
                 bpy.ops.object.delete(use_global=False)
-            if not os.path.exists("./whip_ur5_sa"):
-                os.makedirs('./whip_ur5_sa')
 
-        # np.save(os.path.join(os.getcwd(), 'whip_ur5_sa/successes.npy'), np.array(successes))
-        # np.save(os.path.join(os.getcwd(), 'whip_ur5_sa/a.npy'), np.array(mid_pred))
-        # np.save(os.path.join(os.getcwd(), 'whip_ur5_sa/coordinates.npy'), np.array(coordinates))
+                held_link.parent = None
+        if not os.path.exists("./whip_ur5_sa"):
+            os.makedirs('./whip_ur5_sa')
+        np.save(os.path.join(os.getcwd(), 'whip_ur5_sa/a.npy'), np.array(mid_pred))
     else:
         model_1_successes = 0
         model_2_successes = 0

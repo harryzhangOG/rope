@@ -7,6 +7,9 @@
   * Blender 2.8.2
   * Open CV
 ## Usage:
+  * To evaluate apex points on obstacle settings for a certain task, create a text file `eval_settings.txt`, and list obstacle settings and apex points where each line is `[OBSTACLE X SIZE IN METERS] [OBSTACLE Y SIZE IN METERS] [OBSTACLE Z SIZE IN METERS] [OBSTACLE X IN METERS] [OBSTACLE Y IN METERS] [BASE ANGLE IN RADIANS] [SHOULDER ANGLE IN RADIANS] [ELBOW ANGLE IN RADIANS]`, where each line is a separate obstacle setting/apex point, and each value is delimited by a space bar.
+    * Then, run `blender -P rope_ur5.py -- -mode EVAL -task [TASK NAME]`
+    * The 3 tasks are `VAULTING`, `KNOCKING`, AND `WEAVING`
   * To generate training data, run `blender -b -P datagen.py -- -exp YOUR_EXP_NUM`. 
   * To fully accelerate training data generation on a local machine, I recommend using GNU Screen and run multiple datagen script in parallel, with different exp number. In this way, you can then load the generated npy files and then concatenate them together using `format_plot.ipynb`.
   * To start training, run `python train_inv_model.py`.

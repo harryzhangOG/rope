@@ -323,6 +323,7 @@ def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_size_x, obstac
     up_bound = obstacle_x + obstacle_size_x
     bottom_bound = obstacle_x - obstacle_size_x
     # bpy.context.view_layer.update()
+    print(bpy.context.scene.frame_current)
     for r in rope:
         # if r.matrix_world.translation[1] <= min_y:
         #     min_y = r.matrix_world.translation[1]
@@ -331,6 +332,7 @@ def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_size_x, obstac
         #     if r.matrix_world.translation[1] > left_bound:
         #         left += 1
         bpy.context.view_layer.update()
+        # print(r, r.matrix_world.translation, up_bound, bottom_bound, right_bound)
         if r.matrix_world.translation[0] <= up_bound and r.matrix_world.translation[0] >= bottom_bound:
             # print(r.matrix_world.translation[1])
             if r.matrix_world.translation[1] <= right_bound:
@@ -341,6 +343,25 @@ def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_size_x, obstac
             num += 1
     # print(suc)
     return suc > 1 and num > 1
+
+def success_weaving(rope, obstacle_x_1, obstacle_y_1, obstacle_z_1, obstacle_size_x_1, obstacle_size_y_1, obstacle_x_2, obstacle_y_2, obstacle_z_2, obstacle_size_x_2, obstacle_size_y_2):
+    min_y = inf
+    min_z = inf
+    suc = 0
+    z_suc = 0
+    num = 0
+    left_bound = min(obstacle_y_1 + obstacle_size_y_1, obstacle_y_2 + obstacle_size_y_2)
+    right_bound = max(obstacle_y_1 - obstacle_size_y_1, obstacle_y_2 - obstacle_size_y_2)
+    up_bound = obstacle_x_2 - obstacle_size_x_2
+    bottom_bound = obstacle_x_1 + obstacle_size_x_1
+    for r in rope:
+        bpy.context.view_layer.update()
+        if r.matrix_world.translation[0] <= up_bound and r.matrix_world.translation[0] >= bottom_bound:
+            if r.matrix_world.translation[1] <= right_bound:
+                suc += 1
+                if r.matrix_world.translation[2] <= min(obstacle_z_1, obstacle_z_2):
+                    z_suc += 1
+    return suc > 1 and z_suc > 1
 
 def create_obstacle(obstacle_height, obstacle_x, obstacle_y, obstacle_loc):
     bpy.ops.mesh.primitive_cube_add(rotation=(0, 0, 0), location=obstacle_loc)
@@ -466,6 +487,10 @@ if "__main__" == __name__:
             obstacle = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], obstacle_locs[i])
             print("Obstacle location: ", obstacle_locs[i])
             print("Obstacle dims: ", obstacle_size_xs[i], obstacle_size_ys[i], obstacle_heights[i])
+
+            if task == "WEAVING":
+                obstacle_2 = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], (17, 0, -1+obstacle_heights[i]/2))
+                obstacle_3 = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], (12, 0, -1+obstacle_heights[i]/2))
             
             d2r = pi/180.
 
@@ -532,14 +557,30 @@ if "__main__" == __name__:
             ur5.set_config(end_config)
             ur5.keyframe_insert(121)
 
+            if task == 'WEAVING':
+                mid_config_2 = np.array([   -75.76,  -32.7 , 22.68, -169.95, -89.07, -189.])
+
+                ur5.set_config(end_config)
+                ur5.keyframe_insert(201)
+                ur5.set_config(mid_config_2*d2r)
+                ur5.keyframe_insert(211)
+                ur5.set_config(start_config)
+                ur5.keyframe_insert(221)
+
             for frame in range(101, 300):
+                # print(rope[50], rope[50].matrix_world.translation)
+                bpy.context.scene.frame_set(frame)
+            
+            for frame in range(1, 300):
                 bpy.context.scene.frame_set(frame)
 
-            success = success_ac(rope, obstacle_locs[i][0], obstacle_locs[i][1], obstacle_locs[i][2], obstacle_size_xs[i], obstacle_size_ys[i])
+
+            if task == 'VAULTING' or task == 'KNOCKING':
+                success = success_ac(rope, obstacle_locs[i][0], obstacle_locs[i][1], obstacle_locs[i][2], obstacle_size_xs[i], obstacle_size_ys[i])
+            elif task == 'WEAVING':
+                success = success_weaving(rope, obstacle_locs[i][0], obstacle_locs[i][1], obstacle_locs[i][2], obstacle_size_xs[i], obstacle_size_ys[i], 12, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i]) and success_weaving(rope, 12, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i], 17, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i])
 
             print("Success: ", success)
-            
-            bpy.context.scene.frame_set(101)
 
             # Do not delete on last trial to preserve animation
             if i < len(apex_points) - 1:

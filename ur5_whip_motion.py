@@ -270,7 +270,7 @@ def bpy_main(start_config, mid_config, end_config):
     light = bpy.data.objects['Light']
     light.location = (-3.047271728515625, -1.5726829767227173, 5.903861999511719)
 
-def dat_main(start_config, mid_config, end_config):
+def dat_main(start_config, mid_config, end_config, filename):
     # start_config = [-pi/4., 0., pi/6., -pi/4, pi/4., 0.]
     # end_config   = [ pi/4., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.]
     #start_config = [-pi/4., -pi      , -pi/6., -pi/4, pi/4., 0.]
@@ -281,13 +281,43 @@ def dat_main(start_config, mid_config, end_config):
     H = ceil(duration/t_step)
     cfg, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, t_step)
 
-    for t in range(H+1):
-        print(f"{t*t_step}\t{' '.join(map(str, cfg[t,:]))}\t{' '.join(map(str, vel[t,:]))}\t{' '.join(map(str, acc[t,:]))}")
+    with open("../ur5_go/"+filename, "w+") as text_file:
+        for t in range(H+1):
+            print(f"{t*t_step}\t{' '.join(map(str, cfg[t,:]))}\t{' '.join(map(str, vel[t,:]))}\t{' '.join(map(str, acc[t,:]))}", file=text_file)
+
+def dat_main_datagen(mid_config):
+    filename='ur5_whip_datagen.dat'
+    d2r = pi/180.
+    start_config = np.array([  -40.18, -27.27, 68.59,  -152.87, -82.32, -144.38 ])*d2r # right
+    end_config   = np.array([ -138.9, -17.8, 72.54, -152.87, -117.25, -213.24 ])*d2r
+    duration = 2 # seconds
+    t_step = 0.032
+    H = ceil(duration/t_step)
+    cfg, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, t_step)
+
+    with open("../ur5_go/"+filename, "w+") as text_file:
+        for t in range(H+1):
+            print(f"{t*t_step}\t{' '.join(map(str, cfg[t,:]))}\t{' '.join(map(str, vel[t,:]))}\t{' '.join(map(str, acc[t,:]))}", file=text_file)
+
+def dat_main_datagen_reset(mid_config):
+    filename='ur5_reset_datagen.dat'
+    d2r = pi/180.
+    end_config = np.array([  -40.18, -27.27, 68.59,  -152.87, -82.32, -144.38 ])*d2r # right
+    start_config   = np.array([ -138.9, -17.8, 72.54, -152.87, -117.25, -213.24 ])*d2r
+    duration = 2 # seconds
+    t_step = 0.032
+    H = ceil(duration/t_step)
+    cfg, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, t_step)
+
+    with open("../ur5_go/"+filename, "w+") as text_file:
+        for t in range(H+1):
+            print(f"{t*t_step}\t{' '.join(map(str, cfg[t,:]))}\t{' '.join(map(str, vel[t,:]))}\t{' '.join(map(str, acc[t,:]))}", file=text_file)
 
 if __name__ == "__main__":
     d2r = pi/180.
-    start_config = np.array([  -32.78, -167.76, -78.15,  -9.59, 75.21, -137. ])*d2r # right
-    mid_config   = np.array([  -91.13,  -97.6 , -15.84, -17.65, 75.18, -185. ])*d2r # 66.83 ])
-    end_config   = np.array([ -131.26, -150.59, -68.54, -36.02, 74.99, -191.24 ])*d2r
+    start_config = np.array([  -40.18, -27.27, 68.59,  -152.87, -82.32, -144.38 ])*d2r # right
+    mid_config   = np.array([  -70.76,  -77.7 , 16.68, -152.95, -118.07, -185. ])*d2r # 66.83 ])
+    end_config   = np.array([ -138.9, -17.8, 72.54, -152.87, -117.25, -213.24 ])*d2r
     #bpy_main(start_config, mid_config, end_config)
-    dat_main(start_config, mid_config, end_config)
+    dat_main(start_config, mid_config, end_config, 'ur5_whip.dat')
+    dat_main(end_config, mid_config, start_config, 'ur5_reset.dat')

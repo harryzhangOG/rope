@@ -371,6 +371,9 @@ def make_table(params):
     table.rigid_body.type = 'PASSIVE'
     #table.rigid_body.friction = 0.7
     table.rigid_body.friction = 0.8
+    table_color = bpy.data.materials.new(name="black")
+    table_color.diffuse_color = (0, 0, 0, 1)    
+    table.data.materials.append(table_color)
     bpy.ops.object.select_all(action='DESELECT')
 
 def tie_knot_with_fixture(end, fixture):

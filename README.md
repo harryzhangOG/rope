@@ -7,14 +7,14 @@
   * Blender 2.8.2
   * Open CV
 ## Simulated Environment Usage:
-  * To evaluate apex points on obstacle settings for a certain task, create a text file eval_settings.txt, and list obstacle settings and apex points where each line is [OBSTACLE X SIZE IN METERS] [OBSTACLE Y SIZE IN METERS] [OBSTACLE Z SIZE IN METERS] [OBSTACLE X IN METERS] [OBSTACLE Y IN METERS] [BASE ANGLE IN RADIANS] [SHOULDER ANGLE IN RADIANS] [ELBOW ANGLE IN RADIANS], where each line is a separate obstacle setting/apex point, and each value is delimited by a space bar.
-    * Then, run blender -P rope_ur5.py -- -mode EVAL -task [TASK NAME]
-    * The 3 tasks are VAULTING, KNOCKING, and WEAVING
-* To generate training data, run blender -P rope_ur5.py -- -mode DATAGEN -num [NUMBER OF TRAINING SAMPLES] -image 1 -task [TASK NAME]. (Currently, only VAULTING is supported)
-* To fully accelerate training data generation on a local machine, I recommend using GNU Screen and run multiple datagen script in parallel, with different exp number. In this way, you can then load the generated npy files and then concatenate them together using format_plot.ipynb.
-* To start training, run python train_ur5_sim_resnet.py.
-* To visualize training process, load the val loss and training loss npy files to format_plot.ipynb and plot from there.
-* To evaluate the trained mode performance, run blender -P rope_ur5.py -- -mode MODEL_EVAL -num [NUMBER OF EVAL SAMPLES] -task [TASK NAME]. (Currently, only VAULTING is supported)
+  * To evaluate apex points on obstacle settings for a certain task, create a text file named `eval_settings.txt`, and list obstacle settings and apex points where each line is `[OBSTACLE X SIZE IN METERS] [OBSTACLE Y SIZE IN METERS] [OBSTACLE Z SIZE IN METERS] [OBSTACLE X IN METERS] [OBSTACLE Y IN METERS] [BASE ANGLE IN RADIANS] [SHOULDER ANGLE IN RADIANS] [ELBOW ANGLE IN RADIANS]`, where each line is a separate obstacle setting/apex point, and each value is delimited by a space bar.
+    * Then, run `blender -P rope_ur5.py -- -mode EVAL -task [TASK NAME]`
+    * The 3 tasks are `VAULTING`, `KNOCKING`, and `WEAVING` (Currently, only `VAULTING` is supported)
+* To generate training data, run `blender -P rope_ur5.py -- -mode DATAGEN -num [NUMBER OF TRAINING SAMPLES] -image 1 -task [TASK NAME]`. (Currently, only `VAULTING` is supported)
+* To fully accelerate training data generation on a local machine, I recommend using GNU Screen and run multiple datagen script in parallel, with different exp number. In this way, you can then load the generated npy files and then concatenate them together using `format_plot.ipynb`.
+* To start training, run `python train_ur5_sim_resnet.py`.
+* To visualize training process, load the val loss and training loss npy files to `format_plot.ipynb` and plot from there.
+* To evaluate the trained mode performance, run `blender -P rope_ur5.py -- -mode MODEL_EVAL -num [NUMBER OF EVAL SAMPLES] -task [TASK NAME]`. (Currently, only `VAULTING` is supported)
 
 ## Real Environment Usage:
   * To experiment in real world environment, go to directory `physical`.

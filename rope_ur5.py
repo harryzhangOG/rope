@@ -310,16 +310,18 @@ def take_action(held_link, at, keyf, settlef):
     bpy.context.scene.frame_set(bpy.context.scene.frame_current + settlef)
     held_link.keyframe_insert(data_path="location")
 
-def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius):
+def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_size_x, obstacle_size_y):
     min_y = inf
     min_z = inf
     suc = 0
     z_suc = 0
     num = 0
-    left_bound = obstacle_y + obstacle_radius
-    right_bound = obstacle_y - obstacle_radius
-    up_bound = obstacle_x + obstacle_radius
-    bottom_bound = obstacle_x - obstacle_radius
+    left_bound = obstacle_y + obstacle_size_y
+    right_bound = obstacle_y - obstacle_size_y
+    up_bound = obstacle_x + obstacle_size_x
+    bottom_bound = obstacle_x - obstacle_size_x
+    # bpy.context.view_layer.update()
+    print(bpy.context.scene.frame_current)
     for r in rope:
         # if r.matrix_world.translation[1] <= min_y:
         #     min_y = r.matrix_world.translation[1]
@@ -327,15 +329,84 @@ def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius):
         #         suc += 1
         #     if r.matrix_world.translation[1] > left_bound:
         #         left += 1
+        bpy.context.view_layer.update()
+        # print(r, r.matrix_world.translation, up_bound, bottom_bound, right_bound)
         if r.matrix_world.translation[0] <= up_bound and r.matrix_world.translation[0] >= bottom_bound:
+            # print(r.matrix_world.translation[1])
             if r.matrix_world.translation[1] <= right_bound:
                 suc += 1
                 if r.matrix_world.translation[2] <= obstacle_z:
                     z_suc += 1
         if r.matrix_world.translation[1] <= right_bound:
             num += 1
-    print(suc)
+    # print(suc)
     return suc > 1 and num > 1
+
+def success_knocking(target_object, obstacle_height):
+    return target_object.matrix_world.translation[2] < obstacle_height
+
+def success_weaving(rope, obstacle_x_1, obstacle_y_1, obstacle_z_1, obstacle_size_x_1, obstacle_size_y_1, obstacle_x_2, obstacle_y_2, obstacle_z_2, obstacle_size_x_2, obstacle_size_y_2):
+    min_y = inf
+    min_z = inf
+    suc = 0
+    z_suc = 0
+    num = 0
+    left_bound = min(obstacle_y_1 + obstacle_size_y_1, obstacle_y_2 + obstacle_size_y_2)
+    right_bound = max(obstacle_y_1 - obstacle_size_y_1, obstacle_y_2 - obstacle_size_y_2)
+    up_bound = obstacle_x_2 - obstacle_size_x_2
+    bottom_bound = obstacle_x_1 + obstacle_size_x_1
+    for r in rope:
+        bpy.context.view_layer.update()
+        if r.matrix_world.translation[0] <= up_bound and r.matrix_world.translation[0] >= bottom_bound:
+            if r.matrix_world.translation[1] <= right_bound:
+                suc += 1
+                if r.matrix_world.translation[2] <= min(obstacle_z_1, obstacle_z_2):
+                    z_suc += 1
+    return suc > 1 and z_suc > 1
+
+def create_obstacle(obstacle_height, obstacle_x, obstacle_y, obstacle_loc):
+    bpy.ops.mesh.primitive_cube_add(rotation=(0, 0, 0), location=obstacle_loc)
+    bpy.ops.rigidbody.object_add()
+    bpy.ops.transform.resize(value=(obstacle_x,obstacle_y,obstacle_height/2))
+    obstacle = bpy.context.object
+    obstacle.rigid_body.type = 'PASSIVE'
+    obstacle.rigid_body.friction = 0.7
+
+    if image:
+        mat = bpy.data.materials.new(name="white")
+        mat.diffuse_color = (1, 1, 1, 0)    
+        obstacle.data.materials.append(mat)
+
+    return obstacle
+
+def create_walls():
+    bpy.ops.mesh.primitive_cube_add(location=(19.5, 0, 0))
+    bpy.ops.rigidbody.object_add(type="PASSIVE")
+    bpy.ops.transform.resize(value=(0.5,40,15))
+    wall = bpy.context.object
+    wall_color = bpy.data.materials.new(name="black")
+    wall_color.diffuse_color = (0, 0, 0, 1)    
+    wall.data.materials.append(wall_color)
+
+    bpy.ops.mesh.primitive_cube_add(location=(0, -10, 0))
+    bpy.ops.rigidbody.object_add(type="PASSIVE")
+    bpy.ops.transform.resize(value=(40,0.5,15))
+    wall = bpy.context.object 
+    wall.data.materials.append(wall_color)
+
+def add_color(rope, color, color_name):
+    mat = bpy.data.materials.new(name=color_name)
+    mat.diffuse_color = color
+    for r in rope:
+        r.data.materials.append(mat)
+
+def get_highest_z(rope):
+    bpy.context.view_layer.update()
+    return np.max([r.matrix_world.translation[2] for r in rope])
+
+def get_capsule_coords(rope):
+    bpy.context.view_layer.update()
+    return [r.matrix_world.translation[:3] for r in rope]
 
 if "__main__" == __name__:
     with open("rigidbody_params.json", "r") as f:
@@ -346,11 +417,15 @@ if "__main__" == __name__:
     parser.add_argument('-num', '--num_iterations', dest='num_iterations', type=int)
     parser.add_argument('-image', '--image', dest='image', type=int)
     parser.add_argument('-mode', '--mode', dest='mode', type=str)
+    parser.add_argument('-task', '--task', dest='task', type=str)
     args = parser.parse_known_args(argv)[0]
 
+    # Set up scene
     clear_scene()
     add_camera_light()
+    create_walls()
     rope = make_rope_v3(params)
+    add_color(rope, (0.8, 0.085, 0, 1), 'orange')
     make_table(params)
     frame_end = 25 * 30
     
@@ -374,61 +449,217 @@ if "__main__" == __name__:
     ur5.base.scale[0] = 4
     ur5.base.scale[1] = 4
     ur5.base.scale[2] = 4
-    ur5.base.location[0] = 3
-    ur5.base.location[2] = 2
+    # ur5.base.location[0] = -4
+    ur5.base.location[0] = 1
+    ur5.base.location[1] = 7.5
+    ur5.base.location[2] = 7.5
+    # ur5.base.location[2] = 2
     bpy.context.view_layer.objects.active = ur5.base
     bpy.context.object.rotation_mode = 'XYZ'
-    ur5.base.rotation_euler = Euler((0, 0, pi), 'XYZ')
+    ur5.base.rotation_euler = Euler((0, 0, pi/2 + pi), 'XYZ')
     bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)
     bpy.context.view_layer.update()
 
     N = args.num_iterations
     image = args.image
     mode = args.mode
+    task = args.task
 
-    if mode == "DATAGEN":    
-	
-	mid_pred = []
+    if mode == 'EVAL':
+        f = open('eval_settings.txt', 'r')
 
-        for seq_no in range(N):
+        obstacle_size_xs = []
+        obstacle_size_ys = []
+        obstacle_heights = []
+        obstacle_locs = []
+        apex_points = []
+
+        for setting in f:
+            obstacle_size_x, obstacle_size_y, obstacle_height, obstacle_x, obstacle_y, joint_1, joint_2, joint_3 = setting.split(' ')
+            obstacle_size_xs.append(float(obstacle_size_x) * 2)
+            obstacle_size_ys.append(float(obstacle_size_y) * 2)
+            obstacle_heights.append(float(obstacle_height) * 4)
+            obstacle_locs.append((float(obstacle_y) * 4 + 1, -1 * float(obstacle_x) * 4, -1 + float(obstacle_height) * 4 / 2))
+            apex_points.append([float(joint_1), float(joint_2), float(joint_3)])
+
+        for i, apex_point in enumerate(apex_points):
+            bpy.context.scene.frame_set(1)
+            bpy.context.view_layer.update()
+  
+            for ac in bpy.data.actions:
+                bpy.data.actions.remove(ac)
+
+            keyf = 20
+
+            obstacle = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], obstacle_locs[i])
+            print("Obstacle location: ", obstacle_locs[i])
+            print("Obstacle dims: ", obstacle_size_xs[i], obstacle_size_ys[i], obstacle_heights[i])
+
+            if task == 'KNOCKING':
+                # obstacle_top_height = 10
+                target_object_height = 0.7
+                # obstacle_top_loc = (obstacle_locs[i][0], obstacle_locs[i][1], obstacle_heights[i] + obstacle_top_height/2 - 1 + target_object_height)
+                # obstacle_top = create_obstacle(obstacle_top_height, 0.1, 0.1, obstacle_top_loc)
+                target_object_loc = (obstacle_locs[i][0], obstacle_locs[i][1], obstacle_heights[i] + target_object_height/2 - 1)
+                target_object = create_obstacle(target_object_height, 0.2, 0.2, target_object_loc)
+                target_object.rigid_body.type = 'ACTIVE'
+            elif task == "WEAVING":
+                obstacle_2 = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], (17, 0, -1+obstacle_heights[i]/2))
+                obstacle_3 = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], (12, 0, -1+obstacle_heights[i]/2))
+
+            bpy.ops.object.select_all(action='DESELECT')
+
+            d2r = pi/180.
+
+            start_config = np.array([-40.18, -27.27, 68.59,  -152.87, -82.32, -144.38 ])*d2r
+            end_config   = np.array([-138.9,  -17.8, 72.54, -152.87, -117.25, -213.24])*d2r
+            mid_config = np.append(np.array(apex_point)/d2r, np.array([-169.95, -89.07, -189.]))
+            print("Apex point: ", apex_point)
+
+            ur5.set_config(start_config)
+            ur5.keyframe_insert(1)
+            bpy.context.scene.frame_set(1)
+
+            # Move held link to the upper-left to ensure rope is to the left of obstacle
+            ur5.base.location[0] = 1
+            ur5.base.location[1] = 7.5
+            ur5.base.location[2] = 7.5
+            bpy.context.view_layer.objects.active = ur5.base
+            bpy.ops.object.transform_apply(location = True, scale = False, rotation = False)
+            bpy.context.view_layer.update()
+
+            # 2a. A keyframe motion of held link to put in gripper (start kf = 1, end kf = 80)
+            held_link.keyframe_insert(data_path="location")
+            held_link.keyframe_insert(data_path="rotation_euler")
+            bpy.context.scene.rigidbody_world.enabled = True
+            bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
+            target_loc = (ur5.gripper.right_inner_finger_pad.matrix_world.translation + ur5.gripper.left_inner_finger_pad.matrix_world.translation)/2
+            at = target_loc - held_link.matrix_world.translation
+            take_action(held_link, at, keyf, 40-keyf)
+            ur5.keyframe_insert(keyf)
+
+            # Move held link to gripper
+            ur5.base.location[1] = 0
+            ur5.base.location[2] = 1.5
+            bpy.context.view_layer.objects.active = ur5.base
+            bpy.ops.object.transform_apply(location = True, scale = False, rotation = False)
+            bpy.context.view_layer.update()
+
+            held_link.keyframe_insert(data_path="location")
+            held_link.keyframe_insert(data_path="rotation_euler")
+            bpy.context.scene.rigidbody_world.enabled = True
+            bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
+            target_loc = (ur5.gripper.right_inner_finger_pad.matrix_world.translation + ur5.gripper.left_inner_finger_pad.matrix_world.translation)/2
+            at = target_loc - held_link.matrix_world.translation
+            take_action(held_link, at, 20, 20)
+            ur5.keyframe_insert(60)
+
+            # 2b. Set keyframe to ur5
+            ur5.keyframe_insert(101)
+            for frame in range(1, 102):
+                bpy.context.scene.frame_set(frame)
+
+            # 3. Add rigid-body constraint to attach held end to ur5.gripper.gripper_base
+            # Inverse the transform matrix to make the transform correct
+            held_link.parent = ur5.gripper.right_inner_finger_pad
+            held_link.matrix_parent_inverse = ur5.gripper.right_inner_finger_pad.matrix_world.inverted()
+
+            # 4. make held link.kinematic=False
+            held_link.rigid_body.kinematic = True
+            # 5. ur5.set_config(...), insert keyframes
+            ur5.set_config(start_config)
+            ur5.keyframe_insert(101)
+            ur5.set_config(mid_config*d2r)
+            ur5.keyframe_insert(111)
+            ur5.set_config(end_config)
+            ur5.keyframe_insert(121)
+
+            if task == 'WEAVING':
+                mid_config_2 = np.array([   -75.76,  -32.7 , 22.68, -169.95, -89.07, -189.])
+
+                ur5.set_config(end_config)
+                ur5.keyframe_insert(201)
+                ur5.set_config(mid_config_2*d2r)
+                ur5.keyframe_insert(211)
+                ur5.set_config(start_config)
+                ur5.keyframe_insert(221)
+
+            for frame in range(101, 300):
+                # print(rope[50], rope[50].matrix_world.translation)
+                bpy.context.scene.frame_set(frame)
+            
+            for frame in range(1, 300):
+                bpy.context.scene.frame_set(frame)
+                # if frame == 1:
+                #     obstacle.hide_render = obstacle.hide_viewport = True
+                # elif frame == 51:
+                #     obstacle.hide_render = obstacle.hide_viewport = False
+
+            if task == 'VAULTING':
+                success = success_ac(rope, obstacle_locs[i][0], obstacle_locs[i][1], obstacle_locs[i][2], obstacle_size_xs[i], obstacle_size_ys[i])
+            elif task == 'KNOCKING':
+                success = success_knocking(target_object, obstacle_heights[i])
+            elif task == 'WEAVING':
+                success = success_weaving(rope, obstacle_locs[i][0], obstacle_locs[i][1], obstacle_locs[i][2], obstacle_size_xs[i], obstacle_size_ys[i], 12, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i]) and success_weaving(rope, 12, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i], 17, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i])
+
+            print("Success: ", success)
+
+            # Do not delete on last trial to preserve animation
+            if i < len(apex_points) - 1:
+                # Delete the obstacle
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = obstacle
+                obstacle.name="obstacle"
+                bpy.data.objects['obstacle'].select_set(True)
+                bpy.ops.object.delete(use_global=False)
+
+                held_link.parent = None
+
+                if task == 'KNOCKING':
+                    bpy.ops.object.select_all(action='DESELECT')
+                    bpy.context.view_layer.objects.active = obstacle_top
+                    obstacle_top.name="obstacle_top"
+                    bpy.data.objects['obstacle_top'].select_set(True)
+                    bpy.ops.object.delete(use_global=False)
+
+    elif mode == "DATAGEN":    
+
+        mid_pred = []
+
+        seq_no = 0
+
+        while seq_no < N:
             print('Experiment Number: ', seq_no)
+            
             # remove all keyframes
-
             bpy.context.scene.frame_set(1)
             for ac in bpy.data.actions:
                 bpy.data.actions.remove(ac)
 
             keyf = np.random.randint(10, 20)
 
-            obstacle_height = np.random.uniform(0.5, 4)
-            obstacle_radius = np.random.uniform(0.2, 2)
-            print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-            obstacle_loc = (np.random.uniform(8, 17), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
+            obstacle_height = np.random.uniform(1.2, 6)
+            obstacle_size_x = np.random.uniform(0.3, 0.6)
+            obstacle_size_y = np.random.uniform(0.3, 0.6)
+            print("Obstacle height %03f, Obstacle size x %03f, Obstacle size y %03f" %(obstacle_height, obstacle_size_x, obstacle_size_y))
+            obstacle_loc = (np.random.uniform(4, 19), -0.05-np.random.uniform(-1.2, 4), -1+obstacle_height/2)
             print("Obstacle loc: ", obstacle_loc)
-            bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc)
-            bpy.ops.rigidbody.object_add()
-            bpy.ops.transform.resize(value=(1,1,obstacle_height/2))
-            cylinder = bpy.context.object
-            cylinder.rigid_body.type = 'PASSIVE'
-            cylinder.rigid_body.friction = 0.7
 
-            if image:
-                mat = bpy.data.materials.new(name="red")
-                mat.diffuse_color = (1, 0, 0, 0)    
-                cylinder.data.materials.append(mat)
+            obstacle = create_obstacle(obstacle_height, obstacle_size_x, obstacle_size_y, obstacle_loc)
 
-            bpy.ops.mesh.primitive_cube_add(location=(23, 0, 0))
-            bpy.ops.rigidbody.object_add(type="PASSIVE")
-            bpy.ops.transform.resize(value=(0.5,10,5))
-
+            if task == 'KNOCKING':
+                obstacle_top_height = 10
+                target_object_height = 1
+                obstacle_top_loc = (obstacle_loc[0], obstacle_loc[1], obstacle_height + obstacle_top_height/2 - 1 + target_object_height)
+                create_obstacle(obstacle_top_height, 0.1, 0.1, obstacle_top_loc)                    
 
             d2r = pi/180.
-            start_config = np.array([pi/4., 0., pi/6., -pi/4, pi/4., 0.])
-            end_config   = np.array([-pi/3., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.])
-            # start_config = np.array([  -32.78, -167.76, -78.15,  -9.59, 75.21, -137. ])*d2r # right
-            mid_config_origin   = np.array([  -10,  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r # 66.83 ])
-            mid_base_origin = mid_config_origin[0]/d2r
-            # end_config   = np.array([ -131.26, -150.59, -68.54, -36.02, 74.99, -191.24 ])*d2r
+
+            start_config = np.array([-40.18, -27.27, 68.59,  -152.87, -82.32, -144.38 ])*d2r
+            end_config   = np.array([-138.9,  -17.8, 72.54, -152.87, -117.25, -213.24])*d2r
+            mid_config_origin = np.array([   -80.70,  -86.7, 15.68])
+            mid_config = np.append(mid_config_origin, np.array([-169.95, -89.07, -189.]))
+
             duration = 2 # seconds
             fps = 24
             # H = ceil(fps*duration)
@@ -437,21 +668,29 @@ if "__main__" == __name__:
             H = ceil(duration/t_step)
 
             success = False
-            mid_config = mid_config_origin
             counter = 0
             while not success:
                 counter += 1
-                traj, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
+                traj = None
+                # traj, vel, acc, H = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
                 # while True:
                 #     H = H - 1
                 #     traj_new = generate_whip_motion(start_config, mid_config, end_config, H, 1./fps)
                 #     if traj_new is None:
                 #         break
                 #     traj = traj_new
-                kf = 51
+                
                 ur5.set_config(start_config)
                 ur5.keyframe_insert(1)
                 bpy.context.scene.frame_set(1)
+
+                # Move held link to the upper-left to ensure rope is to the left of obstacle
+                ur5.base.location[0] = 1
+                ur5.base.location[1] = 8
+                ur5.base.location[2] = 8
+                bpy.context.view_layer.objects.active = ur5.base
+                bpy.ops.object.transform_apply(location = True, scale = False, rotation = False)
+                bpy.context.view_layer.update()
 
                 # 2a. A keyframe motion of held link to put in gripper (start kf = 1, end kf = 50)
                 held_link.keyframe_insert(data_path="location")
@@ -460,12 +699,28 @@ if "__main__" == __name__:
                 bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
                 target_loc = (ur5.gripper.right_inner_finger_pad.matrix_world.translation + ur5.gripper.left_inner_finger_pad.matrix_world.translation)/2
                 at = target_loc - held_link.matrix_world.translation
-                print(at)
-                take_action(held_link, at, keyf, 50-keyf)
+                take_action(held_link, at, keyf, 40-keyf)
                 ur5.keyframe_insert(keyf)
+
+                # Re-attach held link to get rope to the left of obstacle if necessary
+                ur5.base.location[1] = 0
+                ur5.base.location[2] = 1.5
+                bpy.context.view_layer.objects.active = ur5.base
+                bpy.ops.object.transform_apply(location = True, scale = True, rotation = False)
+                bpy.context.view_layer.update()
+
+                held_link.keyframe_insert(data_path="location")
+                held_link.keyframe_insert(data_path="rotation_euler")
+                bpy.context.scene.rigidbody_world.enabled = True
+                bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
+                target_loc = (ur5.gripper.right_inner_finger_pad.matrix_world.translation + ur5.gripper.left_inner_finger_pad.matrix_world.translation)/2
+                at = target_loc - held_link.matrix_world.translation
+                take_action(held_link, at, 20, 20)
+                ur5.keyframe_insert(keyf)
+
                 # 2b. Set keyframe to ur5
-                ur5.keyframe_insert(51)
-                for i in range(1, 52):
+                ur5.keyframe_insert(101)
+                for i in range(1, 102):
                     bpy.context.scene.frame_set(i)
 
                 # 3. Add rigid-body constraint to attach held end to ur5.gripper.gripper_base
@@ -476,40 +731,42 @@ if "__main__" == __name__:
                 # 4. make held link.kinematic=False
                 held_link.rigid_body.kinematic = True
                 # 5. ur5.set_config(...), insert keyframes
+                kf = 101
                 if traj is not None:
                     for t in range(traj.shape[0]):
                         wp = traj[t,:]
-                        # print(wp)
                         ur5.set_config(wp)
                         ur5.keyframe_insert(kf)
                         kf = kf + 1
                 else:
                     ur5.set_config(start_config)
-                    ur5.keyframe_insert(51)
-                    ur5.set_config(mid_config)
-                    ur5.keyframe_insert(61)
+                    ur5.keyframe_insert(101)
+                    ur5.set_config(mid_config*d2r)
+                    ur5.keyframe_insert(111)
                     ur5.set_config(end_config)
-                    ur5.keyframe_insert(71)
+                    ur5.keyframe_insert(121)
 
-                for i in range(51, 200):
+                for i in range(101, 300):
                     bpy.context.scene.frame_set(i)
 
-                obstacle_x, obstacle_y, obstacle_z = cylinder.matrix_world.translation
-                success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
+                success = success_ac(rope, obstacle_loc[0], obstacle_loc[1], obstacle_loc[2], obstacle_size_x, obstacle_size_y)
                 if not success:
-                    mid_config = np.array([ mid_base_origin + np.random.uniform(-10, 10),  -97.6 , -15.84, -17.65, 75.18, 0. ])*d2r
-                    for f in range(51, 100):
+                    mid_config = np.append(mid_config_origin + np.array([np.random.uniform(4, 10) * random.choice((-1, 1)),  np.random.uniform(4, 10) * random.choice((-1, 1)), np.random.uniform(4, 8)]), np.array([-17.65, 75.18, 0. ]))
+                    for f in range(101, 300):
                         ur5.keyframe_delete(f)
 
-                print("Success: ", success)
+                print("Success: ", success, ", Trial: ", counter)
 
                 if counter > 10 and not success:
-                    bpy.context.scene.frame_set(51)
+                    bpy.context.scene.frame_set(101)
+                    held_link.parent = None
                     break
             
-            bpy.context.scene.frame_set(51)
-	    if success:
-            	mid_pred.append(mid_config)
+            bpy.context.scene.frame_set(101)
+            if success:
+                mid_pred.append(mid_config[:3])
+                seq_no += 1
+
             if image and success:
                 if not os.path.exists("./whip_ur5_sa/images"):
                     os.makedirs('./whip_ur5_sa/images')
@@ -524,142 +781,164 @@ if "__main__" == __name__:
                 bpy.context.scene.camera.location = (5, 0, 60)
                 bpy.ops.render.render(write_still = True)
 
-            if N > 1:
+            if N > 1 and seq_no < N:
                 # Delete the obstacle
                 bpy.ops.object.select_all(action='DESELECT')
-                bpy.context.view_layer.objects.active = cylinder
-                cylinder.name="cylinder"
-                bpy.data.objects['cylinder'].select_set(True)
+                bpy.context.view_layer.objects.active = obstacle
+                obstacle.name="obstacle"
+                bpy.data.objects['obstacle'].select_set(True)
                 bpy.ops.object.delete(use_global=False)
+
+                held_link.parent = None
         if not os.path.exists("./whip_ur5_sa"):
             os.makedirs('./whip_ur5_sa')
         np.save(os.path.join(os.getcwd(), 'whip_ur5_sa/a.npy'), np.array(mid_pred))
-    else:
+    elif mode == 'MODEL_EVAL':
+        num_successes = 0
+        
         device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
-        net50 = DistModel(device, 6)
-        state_dict = torch.load('resnet_ur5_model.pth', map_location=device)['model_state_dict']
+        net50 = DistModel(device, 3)
+        state_dict = torch.load('../resnet_ur5_model_original.pth', map_location=device)['model_state_dict']
         net50.load_state_dict(state_dict)
         net50.resnet_mean.to(device)
 
-        bpy.context.scene.frame_set(1)
-        for ac in bpy.data.actions:
-            bpy.data.actions.remove(ac)
+        for _ in range(N):
+            bpy.context.scene.frame_set(1)
+            for ac in bpy.data.actions:
+                bpy.data.actions.remove(ac)
 
-        keyf = np.random.randint(10, 20)
+            keyf = np.random.randint(10, 20)
 
-        obstacle_height = np.random.uniform(0.5, 4)
-        obstacle_radius = np.random.uniform(0.2, 2)
-        print("Obstacle height %03f, Obstacle radius %03f" %(obstacle_height, obstacle_radius))
-        obstacle_loc = (np.random.uniform(8, 17), -2-np.random.uniform(-0.5, 3), -1+obstacle_height/2)
-        print("Obstacle loc: ", obstacle_loc)
-        bpy.ops.mesh.primitive_cylinder_add(radius=obstacle_radius, rotation=(0, 0, 0), location=obstacle_loc)
-        bpy.ops.rigidbody.object_add()
-        bpy.ops.transform.resize(value=(1,1,obstacle_height/2))
-        cylinder = bpy.context.object
-        cylinder.rigid_body.type = 'PASSIVE'
-        cylinder.rigid_body.friction = 0.7
+            obstacle_height = np.random.uniform(1.2, 6)
+            obstacle_size_x = np.random.uniform(0.3, 0.6)
+            obstacle_size_y = np.random.uniform(0.3, 0.6)
+            print("Obstacle height %03f, Obstacle size x %03f, Obstacle size y %03f" %(obstacle_height, obstacle_size_x, obstacle_size_y))
+            obstacle_loc = (np.random.uniform(4, 19), -0.05-np.random.uniform(-1.2, 4), -1+obstacle_height/2)
+            print("Obstacle loc: ", obstacle_loc)
 
-        if image:
-            mat = bpy.data.materials.new(name="red")
-            mat.diffuse_color = (1, 0, 0, 0)    
-            cylinder.data.materials.append(mat)
+            obstacle = create_obstacle(obstacle_height, obstacle_size_x, obstacle_size_y, obstacle_loc)
 
-        bpy.ops.mesh.primitive_cube_add(location=(23, 0, 0))
-        bpy.ops.rigidbody.object_add(type="PASSIVE")
-        bpy.ops.transform.resize(value=(0.5,10,5))
+            d2r = pi/180.
+            start_config = np.array([-40.18, -27.27, 68.59,  -152.87, -82.32, -144.38 ])*d2r
+            end_config   = np.array([-138.9,  -17.8, 72.54, -152.87, -117.25, -213.24])*d2r
 
+            mid_config = np.array([-169.95, -89.07, -189.])
+            duration = 2 # seconds
+            fps = 24
+            # H = ceil(fps*duration)
+            # traj = generate_whip_motion(start_config, end_config, H, 1./fps)
+            t_step = 0.032
+            H = ceil(duration/t_step)
 
-        d2r = pi/180.
-        start_config = np.array([pi/4., 0., pi/6., -pi/4, pi/4., 0.])
-        end_config   = np.array([-pi/3., -pi/6., pi/2 - pi/4., -pi/4, pi/4. + pi/2, 0.])
-        # start_config = np.array([  -32.78, -167.76, -78.15,  -9.59, 75.21, -137. ])*d2r # right
-        # end_config   = np.array([ -131.26, -150.59, -68.54, -36.02, 74.99, -191.24 ])*d2r
-        duration = 2 # seconds
-        fps = 24
-        # H = ceil(fps*duration)
-        # traj = generate_whip_motion(start_config, end_config, H, 1./fps)
-        t_step = 0.032
-        H = ceil(duration/t_step)
-
-        success = False
-        ur5.set_config(start_config)
-        ur5.keyframe_insert(1)
-        bpy.context.scene.frame_set(1)
-
-
-        # 2a. A keyframe motion of held link to put in gripper (start kf = 1, end kf = 50)
-        held_link.keyframe_insert(data_path="location")
-        held_link.keyframe_insert(data_path="rotation_euler")
-        bpy.context.scene.rigidbody_world.enabled = True
-        bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
-        target_loc = (ur5.gripper.right_inner_finger_pad.matrix_world.translation + ur5.gripper.left_inner_finger_pad.matrix_world.translation)/2
-        at = target_loc - held_link.matrix_world.translation
-        print(at)
-        take_action(held_link, at, keyf, 50-keyf)
-        ur5.keyframe_insert(keyf)
-        # 2b. Set keyframe to ur5
-        ur5.keyframe_insert(51)
-        for i in range(1, 52):
-            bpy.context.scene.frame_set(i)
-            if i == 51:
-                if not os.path.exists("./whip_ur5_sa/tests"):
-                    os.makedirs('./whip_ur5_sa/tests')
-                scene = bpy.context.scene
-                scene.render.resolution_x = 256
-                scene.render.resolution_y = 256
-                scene.render.resolution_percentage = 100
-                save_render_path = os.path.join(os.getcwd(), 'whip_ur5_sa/tests')
-                bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_test.png')
-                bpy.context.scene.camera.location = (5, 0, 60)
-                bpy.ops.render.render(write_still = True)
-        in_image = Image.open(os.path.join(save_render_path, 'whip_test.png')).convert("RGB")
-        normalize = transforms.Normalize((.5, .5, .5), (.5, .5, .5))
-        preprocess = transforms.Compose([transforms.ToTensor(), normalize])
-        in_image = preprocess(in_image).unsqueeze(0)
-
-        net50.eval()
-        mid_config_pred = net50(in_image.to(device)).sample().detach().numpy()[0]
-
-        traj, vel, acc, H = generate_whip_motion(start_config, mid_config_pred, end_config, H, 1./fps)
-        kf = 51
-        ur5.set_config(start_config)
-        ur5.keyframe_insert(1)
-        bpy.context.scene.frame_set(1)
-
-        # 3. Add rigid-body constraint to attach held end to ur5.gripper.gripper_base
-        # Inverse the transform matrix to make the transform correct
-        held_link.parent = ur5.gripper.right_inner_finger_pad
-        held_link.matrix_parent_inverse = ur5.gripper.right_inner_finger_pad.matrix_world.inverted()
-
-        # 4. make held link.kinematic=False
-        held_link.rigid_body.kinematic = True
-        # 5. ur5.set_config(...), insert keyframes
-        if traj is not None:
-            for t in range(traj.shape[0]):
-                wp = traj[t,:]
-                # print(wp)
-                ur5.set_config(wp)
-                ur5.keyframe_insert(kf)
-                kf = kf + 1
-        else:
+            success = False
             ur5.set_config(start_config)
-            ur5.keyframe_insert(51)
-            ur5.set_config(mid_config)
-            ur5.keyframe_insert(61)
-            ur5.set_config(end_config)
-            ur5.keyframe_insert(71)
+            ur5.keyframe_insert(1)
+            bpy.context.scene.frame_set(1)
 
-        for i in range(51, 200):
-            bpy.context.scene.frame_set(i)
+            # Move held link to the upper-left to ensure rope is to the left of obstacle
+            ur5.base.location[0] = 1
+            ur5.base.location[1] = 7.5
+            ur5.base.location[2] = 7.5
+            bpy.context.view_layer.objects.active = ur5.base
+            bpy.ops.object.transform_apply(location = True, scale = False, rotation = False)
+            bpy.context.view_layer.update()
 
-        obstacle_x, obstacle_y, obstacle_z = cylinder.matrix_world.translation
-        success = success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_radius)
+            # 2a. A keyframe motion of held link to put in gripper (start kf = 1, end kf = 80)
+            held_link.keyframe_insert(data_path="location")
+            held_link.keyframe_insert(data_path="rotation_euler")
+            bpy.context.scene.rigidbody_world.enabled = True
+            bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
+            target_loc = (ur5.gripper.right_inner_finger_pad.matrix_world.translation + ur5.gripper.left_inner_finger_pad.matrix_world.translation)/2
+            at = target_loc - held_link.matrix_world.translation
+            take_action(held_link, at, keyf, 40-keyf)
+            ur5.keyframe_insert(keyf)
 
-        print("Success: ", success)
+            # Move held link to gripper
+            ur5.base.location[1] = 0
+            ur5.base.location[2] = 1.5
+            bpy.context.view_layer.objects.active = ur5.base
+            bpy.ops.object.transform_apply(location = True, scale = False, rotation = False)
+            bpy.context.view_layer.update()
 
-        bpy.context.scene.frame_set(51)
+            held_link.keyframe_insert(data_path="location")
+            held_link.keyframe_insert(data_path="rotation_euler")
+            bpy.context.scene.rigidbody_world.enabled = True
+            bpy.context.scene.rigidbody_world.point_cache.frame_start = 1
+            target_loc = (ur5.gripper.right_inner_finger_pad.matrix_world.translation + ur5.gripper.left_inner_finger_pad.matrix_world.translation)/2
+            at = target_loc - held_link.matrix_world.translation
+            take_action(held_link, at, 20, 20)
+            ur5.keyframe_insert(60)
 
+            # 2b. Set keyframe to ur5
+            ur5.keyframe_insert(101)
+            for i in range(1, 102):
+                bpy.context.scene.frame_set(i)
+                if i == 101:
+                    if not os.path.exists("./whip_ur5_sa/tests"):
+                        os.makedirs('./whip_ur5_sa/tests')
+                    scene = bpy.context.scene
+                    scene.render.resolution_x = 256
+                    scene.render.resolution_y = 256
+                    scene.render.resolution_percentage = 100
+                    save_render_path = os.path.join(os.getcwd(), 'whip_ur5_sa/tests')
+                    bpy.context.scene.render.filepath = os.path.join(save_render_path, 'whip_test.png')
+                    bpy.context.scene.camera.location = (5, 0, 60)
+                    bpy.ops.render.render(write_still = True)
+            in_image = Image.open(os.path.join(save_render_path, 'whip_test.png')).convert("RGB")
+            normalize = transforms.Normalize((.5, .5, .5), (.5, .5, .5))
+            preprocess = transforms.Compose([transforms.ToTensor(), normalize])
+            in_image = preprocess(in_image).unsqueeze(0)
 
+            net50.eval()
+            config = net50(in_image.to(device)).sample().detach().numpy()[0]
+            mid_config_pred = np.append(config, mid_config)
+            print(mid_config_pred)
 
+            # traj, vel, acc, H = generate_whip_motion(start_config, mid_config_pred, end_config, H, 1./fps)
+            traj = None
+            kf = 101
 
+            ur5.set_config(start_config)
+            ur5.keyframe_insert(1)
+            bpy.context.scene.frame_set(1)
 
+            # 3. Add rigid-body constraint to attach held end to ur5.gripper.gripper_base
+            # Inverse the transform matrix to make the transform correct
+            held_link.parent = ur5.gripper.right_inner_finger_pad
+            held_link.matrix_parent_inverse = ur5.gripper.right_inner_finger_pad.matrix_world.inverted()
+
+            # 4. make held link.kinematic=False
+            held_link.rigid_body.kinematic = True
+            # 5. ur5.set_config(...), insert keyframes
+            if traj is not None:
+                for t in range(traj.shape[0]):
+                    wp = traj[t,:]
+                    # print(wp)
+                    ur5.set_config(wp)
+                    ur5.keyframe_insert(kf)
+                    kf = kf + 1
+            else:
+                ur5.set_config(start_config)
+                ur5.keyframe_insert(101)
+                ur5.set_config(mid_config_pred*d2r)
+                ur5.keyframe_insert(111)
+                ur5.set_config(end_config)
+                ur5.keyframe_insert(121)
+
+            for i in range(101, 300):
+                bpy.context.scene.frame_set(i)
+
+            success = success_ac(rope, obstacle_loc[0], obstacle_loc[1], obstacle_loc[2], obstacle_size_x, obstacle_size_y)
+
+            if success:
+                num_successes += 1
+
+            if N > 1:
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = obstacle
+                obstacle.name="obstacle"
+                bpy.data.objects['obstacle'].select_set(True)
+                bpy.ops.object.delete(use_global=False)
+
+                held_link.parent = None
+        print("Number of successes: ", str(num_successes))

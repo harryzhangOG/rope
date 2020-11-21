@@ -1,4 +1,4 @@
-# Learning Rope Dynamics via Inverse Model
+# Robots of the Lost Arc: Learning to Dynamically Manipulate Fixed-Endpoint Ropes and Cables
 ## Requirements:
   * Python 2 / 3
   * PyTorch
@@ -15,6 +15,15 @@
 * To start training, run python train_ur5_sim_resnet.py.
 * To visualize training process, load the val loss and training loss npy files to format_plot.ipynb and plot from there.
 * To evaluate the trained mode performance, run blender -P rope_ur5.py -- -mode MODEL_EVAL -num [NUMBER OF EVAL SAMPLES] -task [TASK NAME]. (Currently, only VAULTING is supported)
+
+## Real Environment Usage:
+  * To experiment in real world environment, go to directory `physical`.
+    * The Python files in that directory correspond to the three tasks and each file will call an external C++ file to run the UR5 robot with a fast trajectory that minimizes the jerk.
+    * In `physical`, `physical_data_collection.py` is for vaulting and knocking tasks datagen and `physical_snake_datagen.py` is for weaving task datagen.
+    * In `physical`, `train_ur5_TASK_physical.py` trains the policy for `TASK` using the collected data.
+    * The scripts for the three tasks follow use the same command line arguments `python FILE.py --seq CURRENT_TRIAL_INDEX --dirc SAVE_DIRECTORY`
+    * The file `repeat_plot.py` contains the method that overlays different trials of the excecution to assess the repeatability of the motion.
+  * The real-world environment setup requires a clear, well-lit space (2.5m x 5m) space in front of the UR5 station.
 
 ## Pytorch and Blender
   * Making Blender run any third-party packages is hard, and making it run PyTorch is even harder. To achieve this, you need to do the following steps:

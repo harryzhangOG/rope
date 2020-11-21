@@ -342,6 +342,9 @@ def success_ac(rope, obstacle_x, obstacle_y, obstacle_z, obstacle_size_x, obstac
     # print(suc)
     return suc > 1 and num > 1
 
+def success_knocking(target_object, obstacle_height):
+    return target_object.matrix_world.translation[2] < obstacle_height
+
 def success_weaving(rope, obstacle_x_1, obstacle_y_1, obstacle_z_1, obstacle_size_x_1, obstacle_size_y_1, obstacle_x_2, obstacle_y_2, obstacle_z_2, obstacle_size_x_2, obstacle_size_y_2):
     min_y = inf
     min_z = inf
@@ -487,14 +490,19 @@ if "__main__" == __name__:
             print("Obstacle dims: ", obstacle_size_xs[i], obstacle_size_ys[i], obstacle_heights[i])
 
             if task == 'KNOCKING':
-                obstacle_top_height = 10
-                target_object_height = 1
-                obstacle_top_loc = (obstacle_locs[i][0], obstacle_locs[i][1], obstacle_heights[i] + obstacle_top_height/2 - 1 + target_object_height)
-                obstacle_top = create_obstacle(obstacle_top_height, 0.1, 0.1, obstacle_top_loc)
+                # obstacle_top_height = 10
+                target_object_height = 0.7
+                # obstacle_top_loc = (obstacle_locs[i][0], obstacle_locs[i][1], obstacle_heights[i] + obstacle_top_height/2 - 1 + target_object_height)
+                # obstacle_top = create_obstacle(obstacle_top_height, 0.1, 0.1, obstacle_top_loc)
+                target_object_loc = (obstacle_locs[i][0], obstacle_locs[i][1], obstacle_heights[i] + target_object_height/2 - 1)
+                target_object = create_obstacle(target_object_height, 0.2, 0.2, target_object_loc)
+                target_object.rigid_body.type = 'ACTIVE'
             elif task == "WEAVING":
                 obstacle_2 = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], (17, 0, -1+obstacle_heights[i]/2))
                 obstacle_3 = create_obstacle(obstacle_heights[i], obstacle_size_xs[i], obstacle_size_ys[i], (12, 0, -1+obstacle_heights[i]/2))
-            
+
+            bpy.ops.object.select_all(action='DESELECT')
+
             d2r = pi/180.
 
             start_config = np.array([-40.18, -27.27, 68.59,  -152.87, -82.32, -144.38 ])*d2r
@@ -576,10 +584,15 @@ if "__main__" == __name__:
             
             for frame in range(1, 300):
                 bpy.context.scene.frame_set(frame)
+                # if frame == 1:
+                #     obstacle.hide_render = obstacle.hide_viewport = True
+                # elif frame == 51:
+                #     obstacle.hide_render = obstacle.hide_viewport = False
 
-
-            if task == 'VAULTING' or task == 'KNOCKING':
+            if task == 'VAULTING':
                 success = success_ac(rope, obstacle_locs[i][0], obstacle_locs[i][1], obstacle_locs[i][2], obstacle_size_xs[i], obstacle_size_ys[i])
+            elif task == 'KNOCKING':
+                success = success_knocking(target_object, obstacle_heights[i])
             elif task == 'WEAVING':
                 success = success_weaving(rope, obstacle_locs[i][0], obstacle_locs[i][1], obstacle_locs[i][2], obstacle_size_xs[i], obstacle_size_ys[i], 12, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i]) and success_weaving(rope, 12, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i], 17, 0, -1+obstacle_heights[i]/2, obstacle_size_xs[i], obstacle_size_ys[i])
 
